@@ -4,6 +4,8 @@ import type { GameSnapshot } from '../../engine/game';
 import { setLatestMessage, listRecords, type PastRecord } from '../../engine/save';
 import { STAT_KEYS, type AxisKey } from '../../engine/types';
 import { gapText, verdictText } from '../../engine/window';
+import { simulatePeers } from '../../engine/peers';
+import { TIER_LABEL } from '../../data/labels';
 import type { EndingCardData } from '../lib/endingCard';
 import { StatBar } from '../components/StatBar';
 
@@ -155,6 +157,38 @@ export function ReviewScreen({
         >
           {saved ? '已记下' : '记下'}
         </button>
+      </section>
+
+      <section className="review-block">
+        <h2>{`同年对照 · ${snapshot.birth.year} 年出生`}</h2>
+        <ul className="compare-list">
+          <li className="is-self">
+            <div className="compare-head">
+              <span className="compare-name">{`${snapshot.birth.name}（你）`}</span>
+              <span className="compare-title">{data.ending.title.name}</span>
+            </div>
+            <p className="compare-meta">
+              {`${snapshot.birth.province} · ${snapshot.birth.urban ? '城镇' : '农村'} · 家境${TIER_LABEL[snapshot.birth.tier]}`}
+            </p>
+            <p className="compare-nums">
+              {`享年 ${aggregate.deathAge} 岁　财富 ${Math.round(aggregate.finalWealth)}　赶上 ${aggregate.caught} / 差一年 ${aggregate.nearMiss}　最幸福 ${aggregate.bestYear} 年`}
+            </p>
+          </li>
+          {simulatePeers(snapshot.birth, snapshot.seed).map((peer) => (
+            <li key={peer.birth.name}>
+              <div className="compare-head">
+                <span className="compare-name">{peer.birth.name}</span>
+                <span className="compare-title">{peer.titleName}</span>
+              </div>
+              <p className="compare-meta">
+                {`${peer.birth.province} · ${peer.birth.urban ? '城镇' : '农村'} · 家境${TIER_LABEL[peer.birth.tier]} · ${peer.careerLine}`}
+              </p>
+              <p className="compare-nums">
+                {`享年 ${peer.deathAge} 岁　财富 ${Math.round(peer.finalStats.wealth)}　赶上 ${peer.caught} / 差一年 ${peer.nearMiss}　最幸福 ${peer.bestYear} 年`}
+              </p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {records.length > 0 && (

@@ -906,3 +906,19 @@ img {
 .badge-reflect { background: #4a5d23; color: #eef3da; }
 .badge-daily { background: #33566b; color: #dceef7; }
 .modal-body { white-space: pre-line; }
+
+.peers-strip { margin: 12px auto 0; max-width: 560px; padding: 0 16px; }
+.peers-strip h3 { font-size: 13px; color: #8a97a5; margin: 0 0 6px; font-weight: 600; }
+.peers-list { list-style: none; margin: 0; padding: 0; }
+.peers-list li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,.08); font-size: 13px; }
+.peer-name { font-weight: 600; }
+.peer-meta { color: #8a97a5; font-size: 12px; }
+.peer-status { margin-left: auto; color: #a8c0d8; font-size: 12px; white-space: nowrap; }
+.compare-list { list-style: none; margin: 0; padding: 0; }
+.compare-list li { padding: 10px 0; border-bottom: 1px dashed rgba(255,255,255,.1); }
+.compare-list li.is-self { border-left: 3px solid #d9c07a; padding-left: 10px; }
+.compare-head { display: flex; justify-content: space-between; align-items: baseline; }
+.compare-name { font-weight: 700; }
+.compare-title { color: #d9c07a; font-size: 13px; }
+.compare-meta { color: #8a97a5; font-size: 12px; margin: 4px 0 0; }
+.compare-nums { font-size: 13px; margin: 4px 0 0; font-variant-numeric: tabular-nums; }

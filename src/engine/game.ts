@@ -94,6 +94,8 @@ export interface GameCounters {
 
 export interface GameSnapshot {
   phase: Phase;
+  /** 本局种子（同年对照组按它派生，同一局永远同一组人） */
+  seed: number;
   birth: Birth;
   year: number;
   age: number;
@@ -727,6 +729,7 @@ export class Game {
 
   private buildSnapshot(): GameSnapshot {
     return {
+      seed: this.seedValue,
       phase: this.phase,
       birth: { ...this.birth },
       year: this.year,

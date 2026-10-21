@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatEffects } from '../../engine/format';
-import { ROLE_LABEL } from '../../data/labels';
+import { ROLE_LABEL, TIER_LABEL } from '../../data/labels';
+import { simulatePeers } from '../../engine/peers';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
 import { STAT_KEYS } from '../../engine/types';
 import { STILLS } from '../../data/stills';
@@ -133,6 +134,31 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
           </ul>
         </section>
       )}
+
+      <section className="peers-strip" aria-label="同年出生的人">
+        <h3>{`和你同年出生的人（${snapshot.birth.year}）`}</h3>
+        <ul className="peers-list">
+          {simulatePeers(snapshot.birth, snapshot.seed).map((peer) => {
+            const gone = snapshot.year > peer.deathYear;
+            const now = peer.yearly.find((y) => y.year === snapshot.year);
+            return (
+              <li key={peer.birth.name}>
+                <span className="peer-name">{peer.birth.name}</span>
+                <span className="peer-meta">
+                  {`${peer.birth.province} · ${peer.birth.urban ? '城镇' : '农村'} · ${TIER_LABEL[peer.birth.tier]}`}
+                </span>
+                <span className="peer-status">
+                  {gone
+                    ? `已于 ${peer.deathAge} 岁离世`
+                    : now
+                      ? `${now.age} 岁 · 幸福 ${Math.round(now.happiness)}`
+                      : '在世'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       {snapshot.focusOptions.length > 0 && (
         <section className="focus" aria-label="今年的重心">
