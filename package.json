@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "fact-table": "vite-node scripts/gen-fact-table.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
