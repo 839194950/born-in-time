@@ -1,6 +1,14 @@
 import { useSyncExternalStore } from 'react';
 import { Game, type GameSnapshot } from '../engine/game';
-import { clearCurrent, loadCurrent, restoreGame, serializeGame, saveCurrent } from '../engine/save';
+import {
+  clearCurrent,
+  loadCurrent,
+  recordFromSnapshot,
+  restoreGame,
+  saveCurrent,
+  serializeGame,
+  pushRecord,
+} from '../engine/save';
 import type { Birth } from '../engine/types';
 
 export interface GameStore {
@@ -19,10 +27,30 @@ export interface GameStore {
 export function createGameStore(): GameStore {
   let game: Game | null = null;
   let detach: (() => void) | null = null;
+  let recorded = false;
   const listeners = new Set<() => void>();
 
   const emit = (): void => {
     for (const listener of [...listeners]) listener();
+  };
+
+  const attach = (next: Game): void => {
+    detach?.();
+    game = next;
+    recorded = false;
+    detach = next.subscribe(() => {
+      const snap = next.snapshot;
+      if (snap.phase === 'dead') {
+        clearCurrent();
+        if (!recorded) {
+          recorded = true;
+          pushRecord(recordFromSnapshot(snap));
+        }
+      } else {
+        saveCurrent(serializeGame(next));
+      }
+      emit();
+    });
   };
 
   return {
@@ -39,14 +67,8 @@ export function createGameStore(): GameStore {
       return game;
     },
     startGame(birth, seed = Date.now()) {
-      detach?.();
       const next = Game.fromBirth(birth, seed);
-      game = next;
-      detach = next.subscribe(() => {
-        if (next.snapshot.phase === 'dead') clearCurrent();
-        else saveCurrent(serializeGame(next));
-        emit();
-      });
+      attach(next);
       next.start();
       emit();
     },
@@ -59,13 +81,7 @@ export function createGameStore(): GameStore {
       } catch {
         return false;
       }
-      detach?.();
-      game = restored;
-      detach = restored.subscribe(() => {
-        if (restored.snapshot.phase === 'dead') clearCurrent();
-        else saveCurrent(serializeGame(restored));
-        emit();
-      });
+      attach(restored);
       emit();
       return true;
     },
@@ -73,6 +89,7 @@ export function createGameStore(): GameStore {
       detach?.();
       detach = null;
       game = null;
+      recorded = false;
       emit();
     },
     setFocus(id) {

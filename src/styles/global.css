@@ -736,3 +736,155 @@ img {
   font-size: 14px;
   padding: 12px 10px;
 }
+
+/* ---------- 复盘 ---------- */
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.review-head h1 {
+  font-size: 24px;
+  letter-spacing: 0.1em;
+  margin: 0 0 6px;
+}
+
+.review-head .sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.review-title {
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.review-block {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.review-block h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  margin: 0 0 12px;
+}
+
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 10px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(52, 48, 42, 0.6);
+}
+
+.ledger-year {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-verdict {
+  font-size: 11px;
+}
+
+.ledger-caught .ledger-verdict { color: var(--good); }
+.ledger-nearMiss .ledger-verdict { color: var(--bad); }
+.ledger-passedBy .ledger-verdict { color: var(--muted); }
+.ledger-passedBy .ledger-title { color: var(--muted); }
+
+.axes {
+  display: grid;
+  gap: 16px;
+}
+
+.axis-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.axis-track {
+  position: relative;
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.axis-marker {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-left: -4px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: left 0.4s ease;
+}
+
+.review-best {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.review-message {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.review-message::placeholder {
+  color: #5d574b;
+}
+
+.record-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.record-year {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-message {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 11px;
+}

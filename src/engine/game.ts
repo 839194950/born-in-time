@@ -17,6 +17,7 @@ import {
 } from './stats';
 import { judgeWindow } from './window';
 import type {
+  AxisKey,
   Birth,
   DeathInfo,
   EventDef,
@@ -30,6 +31,17 @@ import type {
   WindowJudgement,
   YearSnapshot,
 } from './types';
+
+const EMPTY_AXES: Record<AxisKey, number> = {
+  companion: 0,
+  work: 0,
+  root: 0,
+  wind: 0,
+  calm: 0,
+  wave: 0,
+  now: 0,
+  future: 0,
+};
 
 export type Phase = 'playing' | 'awaitingChoice' | 'dead';
 
@@ -74,6 +86,8 @@ export interface GameSnapshot {
   ledger: LedgerEntry[];
   flags: string[];
   counters: GameCounters;
+  /** 人生纹理四轴（陪伴–工作 / 根–风 / 平静–浪潮 / 今天–明天）的累计值 */
+  axes: Record<AxisKey, number>;
   death: DeathInfo | null;
 }
 
@@ -116,6 +130,7 @@ export class Game {
   private flags: string[] = [];
   private death: DeathInfo | null = null;
   private counters: GameCounters = { jobChanges: 0, moves: 0, startups: 0, choices: 0, defaultChoices: 0 };
+  private axes: Record<AxisKey, number> = { ...EMPTY_AXES };
   private firedIds = new Set<string>();
   private deathBase = 0;
   private started = false;
@@ -197,6 +212,9 @@ export class Game {
       const eff: Partial<Stats> = { ...option.effects };
       if (eff.wealth !== undefined) eff.wealth = wealthGain(stats, eff.wealth);
       stats = applyEffects(stats, eff);
+      for (const [axis, weight] of Object.entries(option.axes)) {
+        this.axes[axis as AxisKey] += weight ?? 0;
+      }
     }
     stats = adaptHappiness(stats);
     this.stats = stats;
@@ -470,6 +488,7 @@ export class Game {
       ledger: this.ledger.map((e) => ({ ...e })),
       flags: [...this.flags],
       counters: { ...this.counters },
+      axes: { ...this.axes },
       death: this.death ? { ...this.death } : null,
     };
   }

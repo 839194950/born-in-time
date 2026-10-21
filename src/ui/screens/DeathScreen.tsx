@@ -3,6 +3,7 @@ import type { GameSnapshot } from '../../engine/game';
 import { buildCardData, deathLines } from '../lib/endingCard';
 import { useGame } from '../store';
 import { EndingScreen } from './EndingScreen';
+import { ReviewScreen } from './ReviewScreen';
 
 type Step = 'moment' | 'card' | 'review';
 
@@ -48,12 +49,5 @@ export default function DeathScreen() {
     );
   }
 
-  return (
-    <main className="screen">
-      <p className="modal-body">详细复盘（下一步补完）</p>
-      <button type="button" className="btn-primary" onClick={() => actions.reset()}>
-        再抽一年
-      </button>
-    </main>
-  );
+  return <ReviewScreen snapshot={snapshot} data={data} onRestart={() => actions.reset()} />;
 }

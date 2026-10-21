@@ -1,4 +1,5 @@
-import { CONTINUE_CHOICE_ID, Game } from './game';
+import { evaluateEnding } from './ending';
+import { CONTINUE_CHOICE_ID, Game, type GameSnapshot } from './game';
 import type { Birth, LedgerEntry, Stats, TimelineEntry, YearSnapshot } from './types';
 
 export const SAVE_VERSION = 1;
@@ -163,6 +164,35 @@ export function listRecords(): PastRecord[] {
     return parsed.filter((r): r is PastRecord => typeof r === 'object' && r !== null && 'id' in r);
   } catch {
     return [];
+  }
+}
+
+export function recordFromSnapshot(snapshot: GameSnapshot): PastRecord {
+  const ending = evaluateEnding(snapshot);
+  const now = Date.now();
+  return {
+    id: `${snapshot.birth.year}-${snapshot.death?.year ?? snapshot.year}-${now}`,
+    createdAt: now,
+    birth: snapshot.birth,
+    titleName: ending.title.name,
+    headline: ending.headline,
+    subtitle: ending.subtitle,
+    ledger: snapshot.ledger,
+    snapshots: snapshot.snapshots,
+  };
+}
+
+export function setLatestMessage(message: string): void {
+  const ls = storage();
+  if (!ls) return;
+  try {
+    const list = listRecords();
+    const first = list[0];
+    if (!first) return;
+    list[0] = { ...first, message };
+    ls.setItem(RECORD_KEY, JSON.stringify(list));
+  } catch {
+    // 存不下就算了
   }
 }
 
