@@ -180,6 +180,7 @@ export class Game {
     const parentJobs = [this.birth.fatherJob, this.birth.motherJob];
     if (parentJobs.some((j) => j === 'worker')) this.flags.push('worker_family');
     if (parentJobs.some((j) => j === 'farmer')) this.flags.push('farmer_family');
+    if (!this.birth.urban && parentJobs.some((j) => j === 'migrant')) this.flags.push('migrant_parent');
     this.family = this.buildFamily();
     // 死亡基准只在开局抽一次；健康修正每年现算，所以把身体搞垮会真的少活几年
     this.deathBase = Math.round(

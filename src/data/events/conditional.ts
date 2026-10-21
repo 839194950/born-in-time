@@ -1,7 +1,8 @@
 import type { EventDef } from '../../engine/types';
 
 /**
- * 条件专属事件。Task 22 会补齐到 7 条。
+ * 条件专属事件：只有落在特定身份上的人才会遇到。
+ * 每条都必须带条件，不能对所有人触发。
  */
 export const CONDITIONAL_EVENTS: EventDef[] = [
   {
@@ -19,6 +20,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
         effects: { wealth: 22, happiness: 2 },
         outcome: '补偿款到账那天，你在银行柜台前站了很久。',
         setFlags: ['relocated'],
+        default: true,
       },
       {
         id: 'take_house',
@@ -30,5 +32,170 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     ],
     ledgerWeight: 4,
     source: '《国有土地上房屋征收与补偿条例》（2011 年国务院令第 590 号）及各地实施细则',
+  },
+  {
+    id: 'cond_land_expropriation',
+    layer: 'conditional',
+    trigger: { type: 'age', age: 42 },
+    windowAge: [42, 42],
+    conditions: { urban: false },
+    title: '征地',
+    body: '村里的地被征了，说是要建工业园。补偿方案贴在村委会的墙上，各家算各家的账。',
+    choices: [
+      {
+        id: 'take_money',
+        label: '拿补偿款，进城买房',
+        effects: { wealth: 18, family: 1, happiness: 1 },
+        outcome: '你在县城买了房，户口也迁了过去。',
+        setFlags: ['relocated'],
+        default: true,
+      },
+      {
+        id: 'keep_land',
+        label: '要置换的地',
+        effects: { wealth: 8, family: 3, health: -1 },
+        outcome: '你换了一块离家更远的地，继续种。',
+      },
+    ],
+    ledgerWeight: 4,
+    source: '《中华人民共和国土地管理法》（2019 年修正）关于征地补偿的规定',
+  },
+  {
+    id: 'cond_left_behind',
+    layer: 'conditional',
+    trigger: { type: 'age', age: 8 },
+    windowAge: [8, 8],
+    conditions: { urban: false, flags: ['migrant_parent'] },
+    title: '爸妈出去了',
+    body: '过完年，爸妈坐上了去南方的车。你跟着爷爷奶奶过，电话一周打一次。',
+    choices: [
+      {
+        id: 'wait_for_them',
+        label: '等他们回来',
+        effects: { family: 2, happiness: -2, ability: -1 },
+        outcome: '你每年最盼的是腊月，最怕的是正月十五。',
+      },
+      {
+        id: 'grow_up_fast',
+        label: '自己把日子过起来',
+        effects: { ability: 3, family: -2, health: -1 },
+        outcome: '你学会了自己做饭、自己签字、自己拿主意。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 3,
+    source: '全国妇联《我国农村留守儿童状况研究报告》（2013 年）',
+  },
+  {
+    id: 'cond_layoff_family',
+    layer: 'conditional',
+    trigger: { type: 'year', year: 1998 },
+    windowAge: [0, 18],
+    conditions: { urban: true, flags: ['worker_family'] },
+    title: '父母下岗了',
+    body: '厂里贴了名单，父母的名字都在上面。那一年家里的饭桌安静了很多。',
+    choices: [
+      {
+        id: 'understand',
+        label: '懂事，少花钱',
+        effects: { family: 4, happiness: -2, ability: 1 },
+        outcome: '你把想买的东西都咽了回去，学会了看价签。',
+        default: true,
+      },
+      {
+        id: 'rebel',
+        label: '不服气，闹了一阵',
+        effects: { happiness: -1, family: -3, ability: 2 },
+        outcome: '你和家里吵了几次，后来谁也不再提。',
+      },
+    ],
+    ledgerWeight: 3,
+    source: '1998 年国有企业下岗职工基本生活保障与再就业政策（劳动和社会保障部）',
+  },
+  {
+    id: 'cond_gig_worker',
+    layer: 'conditional',
+    trigger: { type: 'age', age: 25 },
+    windowAge: [25, 25],
+    conditions: { notFlags: ['stable_job'] },
+    title: '灵活就业',
+    body: '这一年，跑单的平台多了起来。注册、接单、结算，全在手机上。没有底薪，也没有社保。',
+    choices: [
+      {
+        id: 'ride',
+        label: '跑起来',
+        effects: { wealth: 4, health: -3, happiness: -1 },
+        outcome: '你一天跑十二个小时，风雨天单价高，你反而盼着下雨。',
+        setFlags: ['gig_worker'],
+      },
+      {
+        id: 'look_for_stable',
+        label: '还是想找个正经单位',
+        effects: { wealth: -1, happiness: 1, family: 1 },
+        outcome: '你一边跑单一边投简历，投了很久。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 3,
+    source: '中华全国总工会《关于新就业形态劳动者情况的调查报告》（2017—2021）',
+  },
+  {
+    id: 'cond_influencer',
+    layer: 'conditional',
+    trigger: { type: 'age', age: 30 },
+    windowAge: [30, 30],
+    conditions: { statMin: { ability: 55 } },
+    title: '一个视频火了',
+    body: '你随手发的一条视频，一晚上涨了几十万播放。私信里全是问“还更新吗”的人。',
+    choices: [
+      {
+        id: 'go_all_in',
+        label: '辞了工作，认真做',
+        effects: { health: -2, ability: 2 },
+        outcome: '你买了一套设备，把客厅改成了拍摄间。',
+        setFlags: ['influencer'],
+        probability: [
+          { p: 0.3, outcome: '两年后，你的账号能养活自己了。', effects: { wealth: 14, happiness: 3 } },
+          { p: 0.7, outcome: '热度散了，你回去上班，账号偶尔更新。', effects: { wealth: -3, happiness: -1 } },
+        ],
+      },
+      {
+        id: 'keep_job',
+        label: '当个爱好',
+        effects: { happiness: 2, wealth: 1 },
+        outcome: '你还是照常上班，周末拍点东西。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 3,
+    source: '中国互联网络信息中心（CNNIC）历年网络视频用户规模与内容创作者调查',
+  },
+  {
+    id: 'cond_edtech_2021',
+    layer: 'conditional',
+    trigger: { type: 'year', year: 2021 },
+    windowAge: [22, 60],
+    conditions: { flags: ['edtech'] },
+    title: '双减',
+    body: '这一年，校外培训被按下暂停键。机构关了门，课表一下子空了。',
+    choices: [
+      {
+        id: 'switch',
+        label: '转行',
+        effects: { wealth: -4, ability: 2, health: -1 },
+        outcome: '你把教案收进箱子，去了一家做企业培训的公司。',
+      },
+      {
+        id: 'wait',
+        label: '留下来等',
+        effects: { wealth: -6, happiness: -3 },
+        outcome: '你等了半年，最后把工位上的东西装进了一个纸箱。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 5,
+    // 门在你身后关上：入行时这行还在，赶上的是它关门的这一年
+    lastTrain: true,
+    source: '中共中央办公厅、国务院办公厅《关于进一步减轻义务教育阶段学生作业负担和校外培训负担的意见》，2021 年 7 月',
   },
 ];

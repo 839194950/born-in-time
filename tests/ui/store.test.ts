@@ -1,6 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { CONTINUE_CHOICE_ID } from '../../src/engine/game';
 import type { Birth } from '../../src/engine/types';
-import { createGameStore } from '../../src/ui/store';
+import { createGameStore, type GameStore } from '../../src/ui/store';
+
+/** 推进一年；遇到抉择就选第一个可用项（差一年则继续） */
+function step(store: GameStore): void {
+  const snap = store.getSnapshot();
+  if (!snap) return;
+  if (snap.phase === 'awaitingChoice') {
+    const pick = snap.pendingEvent?.choices.find((c) => c.state === 'available');
+    store.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
+  } else {
+    store.tick();
+  }
+}
 
 const birth: Birth = {
   year: 1995,
@@ -65,7 +78,7 @@ describe('game store', () => {
   it('重心切换通过 store 转发', () => {
     const store = createGameStore();
     store.startGame(birth, 1);
-    while (store.getSnapshot()!.age < 7) store.tick();
+    while (store.getSnapshot()!.age < 7) step(store);
     store.setFocus('study');
     expect(store.getSnapshot()!.focusId).toBe('study');
   });
@@ -75,7 +88,7 @@ describe('自动存档与续玩', () => {
   it('推进时自动写档，新 store 能接着上一局', () => {
     const a = createGameStore();
     a.startGame(birth, 7);
-    for (let i = 0; i < 9; i++) a.tick();
+    for (let i = 0; i < 9; i++) step(a);
     const year = a.getSnapshot()!.year;
     const age = a.getSnapshot()!.age;
 

@@ -181,7 +181,14 @@ describe('主引擎：年度重心与数值', () => {
     const g = new Game({ seed: 7 });
     g.start();
     g.setFocus('play');
-    while (g.snapshot.age < 13) g.tick();
+    while (g.snapshot.age < 13) {
+      if (g.snapshot.phase === 'awaitingChoice') {
+        const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
+      } else {
+        g.tick();
+      }
+    }
     expect(g.snapshot.stage).toBe('student');
     expect(g.snapshot.focusOptions.some((o) => o.id === g.snapshot.focusId)).toBe(true);
   });

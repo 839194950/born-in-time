@@ -469,7 +469,7 @@ export const ERA_EVENTS: EventDef[] = [
         label: '再生一个',
         effects: { family: 6, wealth: -5, happiness: 2, health: -2 },
         outcome: '第二个孩子出生那天，你在走廊上坐了很久。',
-        setFlags: ['second_child'],
+        setFlags: ['second_child', 'child_born'],
       },
       {
         id: 'stop',
@@ -541,34 +541,6 @@ export const ERA_EVENTS: EventDef[] = [
     ],
     ledgerWeight: 5,
     source: '国家卫生健康委员会 2020 年 1 月起的新冠肺炎疫情通报与防控措施',
-  },
-  {
-    id: 'era_double_reduction_2021',
-    layer: 'era',
-    trigger: { type: 'year', year: 2021 },
-    windowAge: [0, 100],
-    conditions: { flags: ['edtech'] },
-    title: '双减',
-    body: '这一年，校外培训被按下暂停键。机构关了门，老师们的课表一下子空了。',
-    choices: [
-      {
-        id: 'switch',
-        label: '转行',
-        effects: { wealth: -4, ability: 2, health: -1 },
-        outcome: '你把教案收进箱子，去了一家做企业培训的公司。',
-      },
-      {
-        id: 'wait',
-        label: '留下来等',
-        effects: { wealth: -6, happiness: -3 },
-        outcome: '你等了半年，最后把工位上的东西装进了一个纸箱。',
-        default: true,
-      },
-    ],
-    ledgerWeight: 5,
-    // 末班车：门在你身后关上 —— 入行时这行还在，赶上的是它关门的这一年
-    lastTrain: true,
-    source: '中共中央办公厅、国务院办公厅《关于进一步减轻义务教育阶段学生作业负担和校外培训负担的意见》，2021 年 7 月',
   },
   {
     id: 'era_ai_wave_2023',

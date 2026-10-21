@@ -12,7 +12,7 @@ describe('事件目录完整性', () => {
 
   it('时代事件覆盖规格列出的年份', () => {
     const years = new Set(ERA_EVENTS.map(yearOf));
-    for (const y of [1986, 1988, 1990, 1992, 1995, 1998, 1999, 2001, 2003, 2008, 2009, 2013, 2015, 2016, 2017, 2020, 2021, 2023, 2025, 2040, 2045]) {
+    for (const y of [1986, 1988, 1990, 1992, 1995, 1998, 1999, 2001, 2003, 2008, 2009, 2013, 2015, 2016, 2017, 2020, 2023, 2025, 2040, 2045]) {
       expect(years.has(y)).toBe(true);
     }
   });
@@ -46,6 +46,24 @@ describe('事件目录完整性', () => {
 
   it('末班车型事件至少 2 条', () => {
     expect(ALL_EVENTS.filter((e) => e.lastTrain).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('人生阶段事件 20 条，按年龄触发且年龄不重复', () => {
+    expect(STAGE_EVENTS).toHaveLength(20);
+    const ages = STAGE_EVENTS.map((e) => (e.trigger.type === 'age' ? e.trigger.age : -1));
+    for (const age of ages) expect(age).toBeGreaterThan(0);
+    expect(new Set(ages).size).toBe(ages.length);
+    expect([...ages].sort((a, b) => a - b)).toEqual(ages);
+    for (const e of STAGE_EVENTS) expect(e.layer).toBe('stage');
+  });
+
+  it('条件专属事件 7 条，且都带条件', () => {
+    expect(CONDITIONAL_EVENTS).toHaveLength(7);
+    for (const e of CONDITIONAL_EVENTS) {
+      expect(e.layer).toBe('conditional');
+      expect(e.conditions).toBeDefined();
+      expect(Object.keys(e.conditions ?? {}).length).toBeGreaterThan(0);
+    }
   });
 
   it('2026 年以后的内容必须标注“推演”', () => {
