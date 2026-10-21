@@ -65,7 +65,7 @@ function runToYear(game: Game, year: number, decide: (eventId: string) => string
 }
 
 function playTo2021(pick: (eventId: string) => string | null): Game {
-  const game = new Game({ seed: 1, birth, catalog: [buy, crisis, peak] });
+  const game = new Game({ seed: 1, birth, catalog: [buy, crisis, peak], dailyEvents: [], reflections: false });
   game.start();
   runToYear(game, 2021, pick);
   return game;
@@ -73,7 +73,7 @@ function playTo2021(pick: (eventId: string) => string | null): Game {
 
 describe('比特币事件链（蝴蝶效应）', () => {
   it('买了才会遇到后续事件', () => {
-    const game = new Game({ seed: 1, birth, catalog: [buy, crisis, peak] });
+    const game = new Game({ seed: 1, birth, catalog: [buy, crisis, peak], dailyEvents: [], reflections: false });
     game.start();
     runToYear(game, 2013, () => null);
     expect(game.snapshot.pendingEvent!.event.id).toBe('test_btc_buy');

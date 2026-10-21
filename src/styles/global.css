@@ -900,3 +900,9 @@ img {
 .family-age { margin-left: auto; color: #8a97a5; font-size: 12px; }
 .interest-list li { display: inline-flex; gap: 6px; margin-right: 16px; font-size: 14px; padding: 3px 0; }
 .interest-lv { color: #d9c07a; font-variant-numeric: tabular-nums; }
+
+.state-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; padding: 0 16px; }
+.state-chip { font-size: 12px; color: #d9c07a; border: 1px solid rgba(217,192,122,.45); border-radius: 999px; padding: 2px 10px; }
+.badge-reflect { background: #4a5d23; color: #eef3da; }
+.badge-daily { background: #33566b; color: #dceef7; }
+.modal-body { white-space: pre-line; }

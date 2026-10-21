@@ -92,6 +92,14 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
 
       <p className="career-line">{snapshot.careerLine}</p>
 
+      {snapshot.states.length > 0 && (
+        <div className="state-chips" aria-label="持续状态">
+          {snapshot.states.map((st) => (
+            <span key={st.id} className="state-chip">{st.label}</span>
+          ))}
+        </div>
+      )}
+
       {snapshot.family.length > 0 && (
         <section className="family-panel" aria-label="家人">
           <h3>家人</h3>

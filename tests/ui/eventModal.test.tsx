@@ -10,6 +10,7 @@ const baseEvent = {
   windowAge: [17, 19] as [number, number],
   title: '高校扩招',
   body: '正文',
+  kind: 'event',
   choices: [{ id: 'a', label: '报考本科', outcome: '' }],
   ledgerWeight: 5,
   source: '教育部 1999 年招生计划',
@@ -19,6 +20,7 @@ const caught: PendingEvent = {
   event: baseEvent,
   judgement: { verdict: 'caught', age: 18, ageMonths: 216, gapMonths: 0 },
   text: '这一年的招生计划多了五十一万人。',
+  kind: 'event',
   choices: [
     { id: 'a', label: '报考本科', state: 'available', effectsText: '能力 +6　财富 −2', uncertain: false },
     { id: 'b', label: '报考专科', state: 'locked', reason: '成绩够不上', effectsText: '', uncertain: false },
@@ -29,6 +31,7 @@ const nearMiss: PendingEvent = {
   event: { ...baseEvent, title: '房改' },
   judgement: { verdict: 'nearMiss', age: 21, ageMonths: 252, gapMonths: 11 },
   text: '单位分房在这一年走到头。',
+  kind: 'event',
   choices: [],
 };
 

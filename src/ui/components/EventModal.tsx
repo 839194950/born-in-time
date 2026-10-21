@@ -30,18 +30,22 @@ export function EventModal({
 }) {
   const [notice, setNotice] = useState<string | null>(null);
   const { event, judgement, text, choices } = pending;
+  const badgeText =
+    pending.kind === 'reflection' ? '停一停' : pending.kind === 'daily' ? '日常' : verdictText(judgement.verdict);
+  const badgeClass =
+    pending.kind === 'reflection' ? 'badge-reflect' : pending.kind === 'daily' ? 'badge-daily' : (VERDICT_CLASS[judgement.verdict] ?? '');
 
   return (
     <div className="modal-backdrop">
       <div className="modal" role="dialog" aria-modal="true" aria-label={event.title}>
         <div className="modal-head">
-          <span className={`badge ${VERDICT_CLASS[judgement.verdict] ?? ''}`}>{verdictText(judgement.verdict)}</span>
+          <span className={`badge ${badgeClass}`}>{badgeText}</span>
           <h2>{event.title}</h2>
         </div>
 
         <p className="modal-body">{text}</p>
 
-        {judgement.verdict === 'nearMiss' && (
+        {pending.kind === 'event' && judgement.verdict === 'nearMiss' && (
           <p className="modal-near">{nearMissLine(judgement, event.windowAge)}</p>
         )}
 

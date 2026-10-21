@@ -26,9 +26,9 @@ describe('数值与节奏（600 局批跑）', () => {
     expect(rows).toHaveLength(600);
   });
 
-  it('一局抉择数接近 20（15–30 之间）', () => {
-    expect(summary.avgChoices).toBeGreaterThan(15);
-    expect(summary.avgChoices).toBeLessThan(30);
+  it('一局抉择数在二期口径内（35–65 之间：目录约 20 + 日常约 27 + 反思 5）', () => {
+    expect(summary.avgChoices).toBeGreaterThan(35);
+    expect(summary.avgChoices).toBeLessThan(65);
   });
 
   it('“每次都差一年的人”约为 20%（10%–35%）', () => {

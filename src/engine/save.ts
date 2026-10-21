@@ -17,6 +17,8 @@ export interface SaveV1 {
   flags: string[];
   ledger: LedgerEntry[];
   timeline: TimelineEntry[];
+  /** 抉择流水（含日常/反思，账本只记时代事件不够重放）。旧档没有此字段时为空。 */
+  choiceLog?: { eventId: string; choiceId: string }[];
 }
 
 export interface PastRecord {
@@ -52,6 +54,7 @@ export function serializeGame(game: Game): SaveV1 {
     flags: s.flags,
     ledger: s.ledger,
     timeline: s.timeline,
+    choiceLog: [...game.choiceLog],
   };
 }
 
@@ -63,10 +66,18 @@ export function restoreGame(save: SaveV1): Game {
   const game = new Game({ seed: save.seed, birth: save.birth });
   game.start();
 
-  const recordedChoice = new Map<string, string>();
+  // 每个事件 id 对应一条选择队列：可重复的日常事件会出现多次，按顺序取。
+  const recordedChoice = new Map<string, string[]>();
+  const enqueue = (eventId: string, choiceId: string): void => {
+    const q = recordedChoice.get(eventId) ?? [];
+    q.push(choiceId);
+    recordedChoice.set(eventId, q);
+  };
   for (const entry of save.ledger) {
-    if (entry.choiceId) recordedChoice.set(entry.eventId, entry.choiceId);
+    if (entry.choiceId) enqueue(entry.eventId, entry.choiceId);
   }
+  for (const entry of save.choiceLog ?? []) enqueue(entry.eventId, entry.choiceId);
+  const takeRecorded = (eventId: string): string | undefined => recordedChoice.get(eventId)?.shift();
 
   let guard = 0;
   while (game.snapshot.year < save.year && guard++ < 400) {
@@ -74,7 +85,7 @@ export function restoreGame(save: SaveV1): Game {
     if (snap.phase === 'dead') break;
     if (snap.phase === 'awaitingChoice') {
       const pending = snap.pendingEvent!;
-      const recorded = recordedChoice.get(pending.event.id);
+      const recorded = takeRecorded(pending.event.id);
       const available = pending.choices.find((c) => c.state === 'available');
       game.resolve(recorded ?? (available ? available.id : CONTINUE_CHOICE_ID));
     } else {
@@ -85,7 +96,7 @@ export function restoreGame(save: SaveV1): Game {
   // 存档那一刻正好停在弹窗上：事件已触发但还没选
   if (game.snapshot.phase === 'awaitingChoice') {
     const pending = game.snapshot.pendingEvent!;
-    const recorded = recordedChoice.get(pending.event.id);
+    const recorded = takeRecorded(pending.event.id);
     if (recorded) game.resolve(recorded);
   }
 

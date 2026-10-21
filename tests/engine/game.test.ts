@@ -79,7 +79,7 @@ describe('主引擎：抉择', () => {
         { id: 'b', label: 'B', effects: { ability: 1 }, outcome: '' },
       ],
     };
-    const g = new Game({ seed: 1, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [gated] });
+    const g = new Game({ seed: 1, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [gated], dailyEvents: [], reflections: false });
     g.start();
     while (g.snapshot.phase !== 'awaitingChoice') g.tick();
 
@@ -131,7 +131,7 @@ describe('主引擎：抉择', () => {
       source: '测试',
       choices: [{ id: 'a', label: 'A', outcome: '' }],
     };
-    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [far] });
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [far], dailyEvents: [], reflections: false });
     g.start();
     while (g.snapshot.year < 2000) g.tick();
 
@@ -153,7 +153,7 @@ describe('主引擎：抉择', () => {
       source: '测试',
       choices: [{ id: 'a', label: 'A', outcome: '' }],
     };
-    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [close] });
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [close], dailyEvents: [], reflections: false });
     g.start();
     while (g.snapshot.phase !== 'awaitingChoice') g.tick();
 
@@ -180,7 +180,7 @@ describe('主引擎：抉择', () => {
       source: '测试',
       choices: [{ id: 'a', label: 'A', outcome: '' }],
     };
-    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [still] });
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [still], dailyEvents: [], reflections: false });
     g.start();
     while (g.snapshot.phase !== 'awaitingChoice') g.tick();
     expect(g.snapshot.milestoneId).toBeNull();
@@ -278,6 +278,8 @@ describe('回归：阶段事件不走窗口判定（差一年误判）', () => {
       seed: 2,
       birth: { ...rollBirth(u(5)), year: 1990, month },
       catalog: [stageEvent],
+      dailyEvents: [],
+      reflections: false,
     });
     g.start();
     while (g.snapshot.phase !== 'awaitingChoice') g.tick();

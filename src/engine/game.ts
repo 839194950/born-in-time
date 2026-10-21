@@ -1,4 +1,6 @@
 import { ALL_EVENTS } from '../data/events';
+import { DAILY_EVENTS, type DailyEventDef } from '../data/events/daily';
+import { reflectionFor, type ReflectionDef } from '../data/reflections';
 import { stillForEvent } from '../data/stills';
 import { pickName } from '../data/names';
 import { cohortLifeExpectancy } from '../data/demography';
@@ -7,6 +9,7 @@ import {
   MAX_DECISIONS_PER_YEAR,
   findDueBroadcasts,
   findDueEvents,
+  matchesConditions,
   pickVariantText,
   type EventCtx,
 } from './catalog';
@@ -27,6 +30,7 @@ import {
   wealthGain,
 } from './stats';
 import { annualWealthDrift, careerLine, deriveCareer } from './career';
+import { MORTGAGE_TERM_YEARS, deriveStates, type LifeState } from './states';
 import { INTEREST_BY_FOCUS, INTEREST_XP_PER_YEAR, summarizeInterests, type InterestState } from './interests';
 import { judgeWindow } from './window';
 import { STAT_KEYS } from './types';
@@ -74,6 +78,8 @@ export interface PendingEvent {
   judgement: WindowJudgement;
   text: string;
   choices: ResolvedChoice[];
+  /** event=目录事件；daily=日常小事；reflection=反思节点 */
+  kind: 'event' | 'daily' | 'reflection';
 }
 
 export interface GameCounters {
@@ -113,6 +119,8 @@ export interface GameSnapshot {
   interests: InterestState[];
   /** 今年各重心选项将实际生效的整数效果（余数结转后的预演值，与按钮展示一致） */
   focusDisplay: Record<string, Partial<Stats>>;
+  /** 持续状态（房贷/慢病/持仓等），跨年一直挂在身上的东西 */
+  states: LifeState[];
   death: DeathInfo | null;
 }
 
@@ -128,6 +136,10 @@ export interface GameOptions {
   seed: number;
   birth?: Birth;
   catalog?: readonly EventDef[];
+  /** 日常事件池（默认全量）；传空数组可关掉 */
+  dailyEvents?: readonly DailyEventDef[];
+  /** 反思节点开关（默认开） */
+  reflections?: boolean;
 }
 
 const MAX_AGE = 120;
@@ -168,6 +180,13 @@ export class Game {
   private focusResidue: Partial<Stats> = {};
   private interestsXp: Record<string, number> = {};
   private firstPayNoted = false;
+  private readonly dailyEvents: readonly DailyEventDef[];
+  private readonly reflectionsOn: boolean;
+  private dailyLastFired = new Map<string, number>();
+  private flagYears = new Map<string, number>();
+  private reflectionsFired = new Set<number>();
+  private pendingQueue: { def: EventDef; kind: 'daily' | 'reflection' }[] = [];
+  private choiceLogInternal: { eventId: string; choiceId: string }[] = [];
   private deathBase = 0;
   private started = false;
 
@@ -177,6 +196,8 @@ export class Game {
 
   constructor(opts: GameOptions) {
     this.catalog = opts.catalog ?? ALL_EVENTS;
+    this.dailyEvents = opts.dailyEvents ?? DAILY_EVENTS;
+    this.reflectionsOn = opts.reflections ?? true;
     this.seedValue = opts.seed;
     this.rng = createRng(opts.seed);
     this.birth = opts.birth ?? rollBirth(this.rng);
@@ -185,12 +206,22 @@ export class Game {
     this.focusId = defaultFocusFor('infant');
   }
 
-  static fromBirth(birth: Birth, seed: number, catalog?: readonly EventDef[]): Game {
-    return new Game({ seed, birth, catalog });
+  static fromBirth(
+    birth: Birth,
+    seed: number,
+    catalog?: readonly EventDef[],
+    extra?: Pick<GameOptions, 'dailyEvents' | 'reflections'>,
+  ): Game {
+    return new Game({ seed, birth, catalog, ...extra });
   }
 
   getVersion(): number {
     return this.version;
+  }
+
+  /** 全部已做出的抉择流水（存档重放靠它复现日常/反思的选择） */
+  get choiceLog(): readonly { eventId: string; choiceId: string }[] {
+    return this.choiceLogInternal;
   }
 
   /** 存档要靠它重放，所以种子必须随局保存 */
@@ -308,6 +339,32 @@ export class Game {
         stats = applyEffects(stats, { family: -8, happiness: -6 });
       }
     }
+    // 持续状态结算：慢病拖健康、花药钱；房贷满 20 年还清
+    if (!this.flags.includes('chronic_illness') && this.age >= 45 && stats.health < 42 && this.rng.chance(0.08)) {
+      this.flags.push('chronic_illness');
+      this.timeline.push({
+        year: this.year, age: this.age, kind: 'milestone',
+        text: '体检报告出来了：慢性病。从今往后，药不能停，人也得学着保养。',
+      });
+      stats = applyEffects(stats, { health: -3, happiness: -2 });
+    } else if (this.flags.includes('chronic_illness')) {
+      stats = applyEffects(stats, { health: -0.3 });
+      if (this.rng.chance(0.4)) stats = applyEffects(stats, { wealth: -1 });
+    }
+    const mortgageYear = this.flagYears.get('mortgage');
+    if (
+      mortgageYear !== undefined &&
+      this.flags.includes('mortgage') &&
+      !this.flags.includes('mortgage_paid') &&
+      this.year - mortgageYear >= MORTGAGE_TERM_YEARS
+    ) {
+      this.flags.push('mortgage_paid');
+      this.timeline.push({
+        year: this.year, age: this.age, kind: 'milestone',
+        text: '房贷，这个月还清了。那天晚上，睡了个整觉。',
+      });
+      stats = applyEffects(stats, { happiness: 3 });
+    }
     this.stats = stats;
     this.snapshots.push({ year: this.year, age: this.age, happiness: stats.happiness, stats: { ...stats } });
 
@@ -337,8 +394,84 @@ export class Game {
       }
     }
 
+    // 反思节点：到岁数必须停一次。今年已有大抉择，就排在抉择之后。
+    if (this.reflectionsOn && !this.reflectionsFired.has(this.age)) {
+      const reflection = reflectionFor(this.age);
+      if (reflection) {
+        this.reflectionsFired.add(this.age);
+        const def = this.reflectionEventDef(reflection);
+        if (!triggered) triggered = this.trigger(def, 'reflection');
+        else this.pendingQueue.push({ def, kind: 'reflection' });
+      }
+    }
+
+    // 日常小事：空白年大概率有一件；有大事的年份也可能顺手碰上一件。
+    // 排队最多一件，免得弹窗连成串。
+    if (this.age >= 5 && this.rng.chance(triggered ? 0.3 : 0.5)) {
+      const def = this.pickDaily();
+      if (def) {
+        if (!triggered) triggered = this.trigger(def, 'daily');
+        else if (this.pendingQueue.length === 0) this.pendingQueue.push({ def, kind: 'daily' });
+      }
+    }
+
     this.touch();
     return { year: this.year, age: this.age, broadcasts, triggered, died: false };
+  }
+
+  private dailyEventDef(d: DailyEventDef): EventDef {
+    return {
+      id: d.id,
+      layer: 'conditional',
+      trigger: { type: 'age', age: this.age },
+      windowAge: [this.age, this.age],
+      title: d.title,
+      body: d.body,
+      ...(d.variants ? { variants: d.variants } : {}),
+      ...(d.conditions ? { conditions: d.conditions } : {}),
+      choices: d.choices,
+      ledgerWeight: 0,
+      source: d.source,
+    };
+  }
+
+  private reflectionEventDef(r: ReflectionDef): EventDef {
+    const fact = r.fact({
+      birthYear: this.birth.year,
+      year: this.year,
+      lifeExpectancy: this.birth.cohortLifeExpectancy,
+    });
+    return {
+      id: `reflection_${r.age}`,
+      layer: 'conditional',
+      trigger: { type: 'age', age: r.age },
+      windowAge: [r.age, r.age],
+      title: r.title,
+      body: `${fact}\n\n${r.question}`,
+      choices: r.choices,
+      ledgerWeight: 0,
+      source: r.source,
+    };
+  }
+
+  private pickDaily(): EventDef | null {
+    const ctx = this.eventCtx();
+    const candidates = this.dailyEvents.filter((d) => {
+      if (this.age < d.ageRange[0] || this.age > d.ageRange[1]) return false;
+      const last = this.dailyLastFired.get(d.id);
+      if (last !== undefined && (!d.repeatable || this.year - last < 6)) return false;
+      return matchesConditions(this.dailyEventDef(d), ctx);
+    });
+    if (candidates.length === 0) return null;
+    const picked = candidates[this.rng.int(0, candidates.length - 1)]!;
+    this.dailyLastFired.set(picked.id, this.year);
+    return this.dailyEventDef(picked);
+  }
+
+  private popQueue(): PendingEvent | null {
+    const next = this.pendingQueue.shift();
+    if (!next) return null;
+    return this.trigger(next.def, next.kind);
   }
 
   resolve(choiceId: string): TickResult {
@@ -355,8 +488,9 @@ export class Game {
       });
       this.pending = null;
       this.phase = 'playing';
+      const next = this.popQueue();
       this.touch();
-      return { year: this.year, age: this.age, broadcasts: [], triggered: null, died: false };
+      return { year: this.year, age: this.age, broadcasts: [], triggered: next, died: false };
     }
 
     const resolved = this.pending.choices.find((c) => c.id === choiceId);
@@ -389,8 +523,10 @@ export class Game {
     const before = new Set(this.flags);
     for (const f of def.clearFlags ?? []) this.flags = this.flags.filter((x) => x !== f);
     for (const f of setFlags) if (!this.flags.includes(f)) this.flags.push(f);
+    for (const f of setFlags) if (!this.flagYears.has(f)) this.flagYears.set(f, this.year);
     this.syncFamily(setFlags);
 
+    this.choiceLogInternal.push({ eventId: event.id, choiceId });
     this.counters.choices += 1;
     if (def.default) this.counters.defaultChoices += 1;
     if (event.lastTrain && this.pending.judgement.verdict === 'caught') this.counters.lastTrainHits += 1;
@@ -417,8 +553,9 @@ export class Game {
 
     this.pending = null;
     this.phase = 'playing';
+    const queued = this.popQueue();
     this.touch();
-    return { year: this.year, age: this.age, broadcasts: [], triggered: null, died: false };
+    return { year: this.year, age: this.age, broadcasts: [], triggered: queued, died: false };
   }
 
   /** 快转到下一个抉择（或死亡） */
@@ -461,7 +598,7 @@ export class Game {
     };
   }
 
-  private trigger(event: EventDef): PendingEvent | null {
+  private trigger(event: EventDef, kind: PendingEvent['kind'] = 'event'): PendingEvent | null {
     this.firedIds.add(event.id);
 
     const judgement = judgeWindow({
@@ -527,7 +664,7 @@ export class Game {
       };
     });
 
-    this.pending = { event, judgement: { ...judgement, verdict }, text, choices };
+    this.pending = { event, judgement: { ...judgement, verdict }, text, choices, kind };
     this.phase = 'awaitingChoice';
     return this.pending;
   }
@@ -612,6 +749,7 @@ export class Game {
       careerLine: careerLine(deriveCareer(this.flags, this.age, this.birth.urban), this.year, this.age),
       interests: summarizeInterests(this.interestsXp),
       focusDisplay: this.peekFocusDisplay(),
+      states: deriveStates(this.flags, this.age),
     };
   }
 
