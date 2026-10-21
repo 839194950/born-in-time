@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GENDER_LABEL, JOB_LABEL, TIER_LABEL } from '../../data/labels';
+import { urbanizationCaveat } from '../../data/demography';
 import { yearNote } from '../../data/yearNotes';
 import { rollBirth } from '../../engine/birth';
 import { createRng } from '../../engine/rng';
@@ -54,6 +55,9 @@ export function BirthCard({ birth }: { birth: Birth }) {
       </dl>
 
       <p className="card-line">{urbanizationLine(birth)}</p>
+      {urbanizationCaveat(birth.year) && (
+        <p className="card-line card-line-muted">{urbanizationCaveat(birth.year)}</p>
+      )}
       <p className="card-line card-line-muted">{yearNote(birth.year)}</p>
     </section>
   );

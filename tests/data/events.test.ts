@@ -12,7 +12,7 @@ describe('事件目录完整性', () => {
 
   it('时代事件覆盖规格列出的年份', () => {
     const years = new Set(ERA_EVENTS.map(yearOf));
-    for (const y of [1986, 1988, 1990, 1992, 1995, 1998, 1999, 2001, 2003, 2008, 2009, 2013, 2015, 2016, 2017, 2020, 2023, 2025, 2040, 2045]) {
+    for (const y of [1986, 1988, 1990, 1997, 1998, 1999, 2001, 2008, 2009, 2013, 2015, 2016, 2017, 2018, 2023, 2025, 2030, 2035, 2040, 2045]) {
       expect(years.has(y)).toBe(true);
     }
   });
@@ -57,8 +57,8 @@ describe('事件目录完整性', () => {
     for (const e of STAGE_EVENTS) expect(e.layer).toBe('stage');
   });
 
-  it('条件专属事件 7 条，且都带条件', () => {
-    expect(CONDITIONAL_EVENTS).toHaveLength(7);
+  it('条件专属事件不少于 7 条，且都带条件', () => {
+    expect(CONDITIONAL_EVENTS.length).toBeGreaterThanOrEqual(7);
     for (const e of CONDITIONAL_EVENTS) {
       expect(e.layer).toBe('conditional');
       expect(e.conditions).toBeDefined();

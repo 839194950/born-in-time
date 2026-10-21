@@ -44,8 +44,8 @@ const entry = (eventId: string, verdict: Verdict, over: Partial<LedgerEntry> = {
 });
 
 describe('命型判定', () => {
-  it('三次差一年就是“每次都差一年的人”', () => {
-    expect(titleOf(agg({ nearMiss: 3, caught: 5, hitRate: 0.7 }))).toBe('每次都差一年的人');
+  it('四次差一年就是“每次都差一年的人”', () => {
+    expect(titleOf(agg({ nearMiss: 4, caught: 5, hitRate: 0.7 }))).toBe('每次都差一年的人');
   });
 
   it('窗口命中率七成以上且赶上了浪', () => {
@@ -68,8 +68,8 @@ describe('命型判定', () => {
   });
 
   it('命中集中在 35 岁前 / 40 岁后', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 0, deathAge: 68 }))).toBe('少年得志');
-    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 4, deathAge: 68 }))).toBe('大器晚成');
+    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 1, deathAge: 68 }))).toBe('少年得志');
+    expect(titleOf(agg({ nearMiss: 0, caught: 5, passedBy: 3, hitRate: 0.57, earlyHits: 1, lateHits: 5, deathAge: 68 }))).toBe('大器晚成');
   });
 
   it('折腾的人需要转行加迁徙够多且财富起伏大', () => {

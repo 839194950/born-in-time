@@ -9,7 +9,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'always_one_year_short',
     name: '每次都差一年的人',
     rarity: 12,
-    test: (a) => a.nearMiss >= 3,
+    test: (a) => a.nearMiss >= 4 || (a.nearMiss === 3 && a.caught <= 2),
     blurb: (a) => `他${a.nearMiss}次站在门口，门都在他面前一步关上。`,
   },
   {
@@ -44,14 +44,14 @@ export const TITLES: readonly TitleDef[] = [
     id: 'young_success',
     name: '少年得志',
     rarity: 7,
-    test: (a) => a.earlyHits >= 4 && a.lateHits <= 1,
+    test: (a) => a.earlyHits >= 3 && a.earlyHits >= a.lateHits + 2,
     blurb: () => '他最好的那几年，来得很早。',
   },
   {
     id: 'late_bloomer',
     name: '大器晚成',
     rarity: 6,
-    test: (a) => a.lateHits >= 4 && a.lateHits >= a.earlyHits,
+    test: (a) => a.lateHits >= 5 && a.lateHits >= a.earlyHits,
     blurb: () => '他的运气来得晚，但到底来了。',
   },
   {
@@ -72,7 +72,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'small_life',
     name: '过小日子的人',
     rarity: 3,
-    test: (a) => a.hitRate >= 0.3 && a.hitRate <= 0.6 && a.happinessAvg >= 58 && a.familyFinal >= 62,
+    test: (a) => a.hitRate >= 0.3 && a.hitRate <= 0.6 && a.happinessAvg >= 56 && a.familyFinal >= 60,
     blurb: () => '没什么大事发生，日子一天一天过下来了。',
   },
   {
@@ -81,7 +81,7 @@ export const TITLES: readonly TitleDef[] = [
     rarity: 2,
     // 本模型里健康终值把大多数人拉低约 3 年，实测上限约 +2.9；
     // +2.5 相当于同期人里最长寿的那一小撮
-    test: (a) => a.deathAge >= a.cohortLifeExpectancy + 2.5,
+    test: (a) => a.deathAge >= a.cohortLifeExpectancy + 1.5,
     blurb: (a) => `同一年出生的人大多停在了${a.cohortLifeExpectancy}岁，他走到了${a.deathAge}岁。`,
   },
   {

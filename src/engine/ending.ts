@@ -33,7 +33,7 @@ export function buildAggregate(s: GameSnapshot): EndingAggregate {
     nearMiss: sum.nearMiss,
     passedBy: sum.passedBy,
     hitRate: sum.hitRate,
-    lastTrainHits: sum.lastTrainHits,
+    lastTrainHits: s.counters.lastTrainHits,
     earlyHits: s.ledger.filter((e) => e.verdict === 'caught' && e.age <= 35).length,
     lateHits: s.ledger.filter((e) => e.verdict === 'caught' && e.age >= 40).length,
     jobChanges: s.counters.jobChanges,

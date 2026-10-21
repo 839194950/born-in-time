@@ -53,6 +53,18 @@ describe('出生卡', () => {
   });
 });
 
+describe('2000 年的统计口径说明', () => {
+  it('2000 年出生卡多一行口径说明', () => {
+    const html = renderToString(<BirthCard birth={{ ...birth, year: 2000 }} />);
+    expect(html).toContain('普查');
+  });
+
+  it('别的年份不出现这句', () => {
+    const html = renderToString(<BirthCard birth={birth} />);
+    expect(html).not.toContain('普查');
+  });
+});
+
 describe('开局屏', () => {
   it('首屏能渲染标题与按钮', () => {
     const html = renderToString(<BirthScreen onStart={() => {}} />);

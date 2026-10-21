@@ -4,8 +4,11 @@ import {
   jobPool,
   onlyChildChance,
   tierWeights,
+  urbanizationCaveat,
   urbanizationRate,
   yearWeight,
+  averageWage,
+  wageMonths,
 } from '../../src/data/demography';
 import { BIRTH_YEARS } from '../../src/data/demography';
 import { pickName } from '../../src/data/names';
@@ -14,21 +17,31 @@ import { createRng } from '../../src/engine/rng';
 import { YEAR_FROM, YEAR_TO } from '../../src/engine/types';
 
 describe('城镇化率', () => {
-  it('锚点年份取锚点值', () => {
-    expect(urbanizationRate(1977)).toBeCloseTo(0.18, 5);
-    expect(urbanizationRate(1990)).toBeCloseTo(0.26, 5);
-    expect(urbanizationRate(2002)).toBeCloseTo(0.39, 5);
+  it('逐年取核验表的精确值', () => {
+    expect(urbanizationRate(1977)).toBeCloseTo(0.1755, 4);
+    expect(urbanizationRate(1982)).toBeCloseTo(0.2113, 4);
+    expect(urbanizationRate(1990)).toBeCloseTo(0.2641, 4);
+    expect(urbanizationRate(1997)).toBeCloseTo(0.2992, 4);
+    expect(urbanizationRate(2000)).toBeCloseTo(0.3622, 4);
+    expect(urbanizationRate(2002)).toBeCloseTo(0.3909, 4);
   });
 
-  it('中间年份线性插值', () => {
-    expect(urbanizationRate(1982)).toBeCloseTo(0.21, 5);
-    expect(urbanizationRate(1997)).toBeCloseTo(0.318, 5);
-  });
-
-  it('全年份严格递增', () => {
+  it('总体上升，但允许 1991 年那 0.04 个点的回落', () => {
+    expect(urbanizationRate(2002)).toBeGreaterThan(urbanizationRate(1977));
     for (let y = YEAR_FROM + 1; y <= YEAR_TO; y++) {
-      expect(urbanizationRate(y)).toBeGreaterThan(urbanizationRate(y - 1));
+      expect(urbanizationRate(y)).toBeGreaterThan(urbanizationRate(y - 1) - 0.01);
     }
+  });
+
+  it('年份越界时夹到边界，不返回 NaN', () => {
+    expect(urbanizationRate(1900)).toBeCloseTo(urbanizationRate(1977), 6);
+    expect(urbanizationRate(2100)).toBeCloseTo(urbanizationRate(2002), 6);
+  });
+
+  it('2000 年要有口径说明，别的年份没有', () => {
+    expect(urbanizationCaveat(2000)).toContain('普查');
+    expect(urbanizationCaveat(1999)).toBeNull();
+    expect(urbanizationCaveat(2001)).toBeNull();
   });
 });
 
@@ -120,6 +133,21 @@ describe('姓名库', () => {
       female.add(f);
     }
     expect([...male].some((n) => female.has(n))).toBe(false);
+  });
+});
+
+describe('工资锚点', () => {
+  it('取年鉴值，中间年份插值', () => {
+    expect(averageWage(1997)).toBe(6470);
+    expect(averageWage(2008)).toBe(29229);
+    expect(averageWage(1988)).toBeGreaterThan(1400);
+    expect(averageWage(1988)).toBeLessThan(1800);
+  });
+
+  it('把金额换算成当年几个月的工资', () => {
+    // 1997 年 3000 元学费 ≈ 5.6 个月工资
+    expect(wageMonths(3000, 1997)).toBe(6);
+    expect(wageMonths(1000000, 2020)).toBeGreaterThan(100);
   });
 });
 

@@ -89,12 +89,12 @@ describe('rollBirth', () => {
     expect(farmish / rural).toBeGreaterThan(0.5);
   });
 
-  it('程序员只出现在 2000 年及以后', () => {
+  it('程序员只出现在 1996 年及以后（职业池分档 1996–2002）', () => {
     const r = createRng(13);
     for (let i = 0; i < 20000; i++) {
       const b = rollBirth(r);
       if (b.fatherJob === 'programmer' || b.motherJob === 'programmer') {
-        expect(b.year).toBeGreaterThanOrEqual(2000);
+        expect(b.year).toBeGreaterThanOrEqual(1996);
       }
     }
   });

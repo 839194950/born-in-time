@@ -78,6 +78,8 @@ export interface GameCounters {
   startups: number;
   choices: number;
   defaultChoices: number;
+  /** 赶上“最后一班车”的次数，含不进账本的条件专属事件 */
+  lastTrainHits: number;
 }
 
 export interface GameSnapshot {
@@ -141,7 +143,14 @@ export class Game {
   private ledger: LedgerEntry[] = [];
   private flags: string[] = [];
   private death: DeathInfo | null = null;
-  private counters: GameCounters = { jobChanges: 0, moves: 0, startups: 0, choices: 0, defaultChoices: 0 };
+  private counters: GameCounters = {
+    jobChanges: 0,
+    moves: 0,
+    startups: 0,
+    choices: 0,
+    defaultChoices: 0,
+    lastTrainHits: 0,
+  };
   private axes: Record<AxisKey, number> = { ...EMPTY_AXES };
   private milestoneId: string | null = null;
   private firedIds = new Set<string>();
@@ -316,6 +325,7 @@ export class Game {
 
     this.counters.choices += 1;
     if (def.default) this.counters.defaultChoices += 1;
+    if (event.lastTrain && this.pending.judgement.verdict === 'caught') this.counters.lastTrainHits += 1;
     for (const f of setFlags) {
       if (before.has(f)) continue;
       if (f === 'migrant' || f === 'relocated') this.counters.moves += 1;

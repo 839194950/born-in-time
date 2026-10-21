@@ -25,22 +25,48 @@ function interpolate(anchors: Anchors, year: number): number {
 }
 
 /**
- * 城镇化率（0–1）。锚点取整自国家统计局口径，中间年份线性插值。
- * 来源：国家统计局《中国统计年鉴》人口城乡构成，1978 年 17.9%、1990 年 26.4%、
- * 2000 年 36.2%、2002 年 39.1%；1977 年按 1978 年近似。
+ * 城镇化率（0–1），逐年精确值，不再插值。
+ * 来源：三源交叉一致的《中国统计年鉴》人口城乡构成序列（见 docs/史实核对表.md）。
+ * 注意两处口径：1979 年取 18.96%（与城镇人口数自洽）；2000 年从 30.89% 跳到 36.22%
+ * 是第五次全国人口普查的统计口径调整，不是真实一年涨了 5 个点。
  */
-const URBANIZATION_ANCHORS: Anchors = [
-  [1977, 0.18],
-  [1980, 0.19],
-  [1985, 0.24],
-  [1990, 0.26],
-  [1995, 0.29],
-  [2000, 0.36],
-  [2002, 0.39],
-];
+const YEAR_URBAN: Readonly<Record<number, number>> = {
+  1977: 0.1755,
+  1978: 0.1792,
+  1979: 0.1896,
+  1980: 0.1939,
+  1981: 0.2016,
+  1982: 0.2113,
+  1983: 0.2162,
+  1984: 0.2301,
+  1985: 0.2371,
+  1986: 0.2452,
+  1987: 0.2532,
+  1988: 0.2581,
+  1989: 0.2621,
+  1990: 0.2641,
+  1991: 0.2637,
+  1992: 0.2763,
+  1993: 0.2814,
+  1994: 0.2862,
+  1995: 0.2904,
+  1996: 0.2937,
+  1997: 0.2992,
+  1998: 0.304,
+  1999: 0.3089,
+  2000: 0.3622,
+  2001: 0.3766,
+  2002: 0.3909,
+};
 
 export function urbanizationRate(year: number): number {
-  return interpolate(URBANIZATION_ANCHORS, year);
+  const clamped = Math.min(YEAR_TO, Math.max(YEAR_FROM, Math.round(year)));
+  return YEAR_URBAN[clamped] ?? YEAR_URBAN[YEAR_FROM]!;
+}
+
+/** 2000 年的跳变来自普查口径调整，出生卡上要说明一句，别让人以为是真的一年涨 5 个点 */
+export function urbanizationCaveat(year: number): string | null {
+  return year === 2000 ? '注：这一年的统计口径按第五次全国人口普查调整过，城镇化率的跳升不代表一年内的真实变化。' : null;
 }
 
 /**
@@ -148,12 +174,12 @@ export function tierWeights(year: number, urban: boolean): TierWeight[] {
 
 /**
  * 独生概率。1977–1979 未严格推行，接近自然多孩；
- * 1980 后城市执行更严，到 1990 年前后触顶。
+ * 1980 年一胎化公开信之后，城市约 80%，农村约 40%（一孩半政策）。
+ * 2016 年全面二孩后逐年下降，但本作生年上限是 2002，不涉及。
  */
 export function onlyChildChance(year: number, urban: boolean): number {
   if (year <= 1979) return 0.05;
-  const t = Math.min(1, (year - 1980) / 10);
-  return urban ? 0.7 + 0.15 * t : 0.3 + 0.15 * t;
+  return urban ? 0.8 : 0.4;
 }
 
 type JobWeight = { id: JobId; w: number };
@@ -177,29 +203,28 @@ const POOL_1977_RURAL: JobWeight[] = [
   { id: 'cadre', w: 2 },
 ];
 
-const POOL_1990_URBAN: JobWeight[] = [
-  { id: 'worker', w: 38 },
-  { id: 'cadre', w: 12 },
-  { id: 'selfEmployed', w: 12 },
-  { id: 'teacher', w: 10 },
-  { id: 'merchant', w: 10 },
-  { id: 'shopclerk', w: 8 },
-  { id: 'townshipWorker', w: 5 },
+const POOL_1986_URBAN: JobWeight[] = [
+  { id: 'worker', w: 44 },
+  { id: 'cadre', w: 13 },
+  { id: 'teacher', w: 11 },
+  { id: 'selfEmployed', w: 10 },
+  { id: 'merchant', w: 9 },
+  { id: 'shopclerk', w: 7 },
+  { id: 'townshipWorker', w: 3 },
   { id: 'soldier', w: 3 },
-  { id: 'farmer', w: 2 },
 ];
 
-const POOL_1990_RURAL: JobWeight[] = [
-  { id: 'farmer', w: 68 },
-  { id: 'townshipWorker', w: 10 },
-  { id: 'selfEmployed', w: 6 },
-  { id: 'merchant', w: 5 },
+const POOL_1986_RURAL: JobWeight[] = [
+  { id: 'farmer', w: 72 },
+  { id: 'townshipWorker', w: 8 },
+  { id: 'migrant', w: 7 },
+  { id: 'selfEmployed', w: 4 },
   { id: 'teacher', w: 4 },
-  { id: 'worker', w: 4 },
-  { id: 'shopclerk', w: 3 },
+  { id: 'worker', w: 3 },
+  { id: 'shopclerk', w: 2 },
 ];
 
-const POOL_2000_URBAN: JobWeight[] = [
+const POOL_1996_URBAN: JobWeight[] = [
   { id: 'worker', w: 25 },
   { id: 'officeWorker', w: 18 },
   { id: 'selfEmployed', w: 14 },
@@ -212,7 +237,7 @@ const POOL_2000_URBAN: JobWeight[] = [
   { id: 'soldier', w: 2 },
 ];
 
-const POOL_2000_RURAL: JobWeight[] = [
+const POOL_1996_RURAL: JobWeight[] = [
   { id: 'farmer', w: 55 },
   { id: 'migrant', w: 20 },
   { id: 'townshipWorker', w: 10 },
@@ -221,8 +246,54 @@ const POOL_2000_RURAL: JobWeight[] = [
   { id: 'merchant', w: 5 },
 ];
 
+/**
+ * 职业池随年代扩张，分档与核验表一致：
+ * 1977–1985 只有农民/工人/教师/干部/军人（加供销社），
+ * 1986–1995 加个体户、乡镇企业职工、外出务工，
+ * 1996–2002 加企业主、白领、程序员。
+ */
 export function jobPool(year: number, urban: boolean): JobWeight[] {
-  if (year <= 1989) return urban ? POOL_1977_URBAN : POOL_1977_RURAL;
-  if (year <= 1999) return urban ? POOL_1990_URBAN : POOL_1990_RURAL;
-  return urban ? POOL_2000_URBAN : POOL_2000_RURAL;
+  if (year <= 1985) return urban ? POOL_1977_URBAN : POOL_1977_RURAL;
+  if (year <= 1995) return urban ? POOL_1986_URBAN : POOL_1986_RURAL;
+  return urban ? POOL_1996_URBAN : POOL_1996_RURAL;
+}
+
+/**
+ * 城镇单位就业人员年平均工资（元）。事件文案里的“体感锚点”从这里算，
+ * 避免出现“这套房要全家不吃不喝 6 年”这种拍脑袋的数字。
+ * 来源：《中国统计年鉴》表 4-22。2020 年为约数（城镇非私营口径）。
+ */
+const AVERAGE_WAGE: Readonly<Record<number, number>> = {
+  1978: 615,
+  1980: 762,
+  1985: 1148,
+  1990: 2140,
+  1991: 2340,
+  1992: 2711,
+  1993: 3371,
+  1994: 4538,
+  1995: 5500,
+  1996: 6210,
+  1997: 6470,
+  1998: 7479,
+  1999: 8346,
+  2000: 9371,
+  2001: 10870,
+  2002: 12422,
+  2005: 18364,
+  2008: 29229,
+  2020: 97379,
+};
+
+const WAGE_ANCHORS: Anchors = Object.entries(AVERAGE_WAGE)
+  .map(([y, w]) => [Number(y), w] as const)
+  .sort((a, b) => a[0] - b[0]);
+
+export function averageWage(year: number): number {
+  return Math.round(interpolate(WAGE_ANCHORS, year));
+}
+
+/** 把这笔钱换算成“当年几个月的工资”，用于事件文案里的体感锚点 */
+export function wageMonths(amount: number, year: number): number {
+  return Math.max(1, Math.round((amount / averageWage(year)) * 12));
 }
