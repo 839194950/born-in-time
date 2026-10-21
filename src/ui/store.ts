@@ -10,6 +10,7 @@ export interface GameStore {
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
+  advanceToDecision(): void;
 }
 
 export function createGameStore(): GameStore {
@@ -50,6 +51,9 @@ export function createGameStore(): GameStore {
     resolve(id) {
       game?.resolve(id);
     },
+    advanceToDecision() {
+      game?.advanceToDecision();
+    },
   };
 }
 
@@ -60,6 +64,7 @@ export interface GameActions {
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
+  advanceToDecision(): void;
 }
 
 export function useGame(): { snapshot: GameSnapshot | null; actions: GameActions } {
@@ -71,6 +76,7 @@ export function useGame(): { snapshot: GameSnapshot | null; actions: GameActions
       setFocus: store.setFocus,
       tick: store.tick,
       resolve: store.resolve,
+      advanceToDecision: store.advanceToDecision,
     },
   };
 }
