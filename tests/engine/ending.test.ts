@@ -68,8 +68,8 @@ describe('命型判定', () => {
   });
 
   it('命中集中在 35 岁前 / 40 岁后', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 1, deathAge: 68 }))).toBe('少年得志');
-    expect(titleOf(agg({ nearMiss: 0, caught: 5, passedBy: 3, hitRate: 0.57, earlyHits: 1, lateHits: 5, deathAge: 68 }))).toBe('大器晚成');
+    expect(titleOf(agg({ nearMiss: 0, caught: 6, passedBy: 4, hitRate: 0.6, earlyHits: 6, lateHits: 0, deathAge: 68 }))).toBe('少年得志');
+    expect(titleOf(agg({ nearMiss: 0, caught: 5, passedBy: 3, hitRate: 0.57, earlyHits: 0, lateHits: 3, deathAge: 68 }))).toBe('大器晚成');
   });
 
   it('折腾的人需要转行加迁徙够多且财富起伏大', () => {

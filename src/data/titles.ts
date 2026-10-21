@@ -9,7 +9,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'always_one_year_short',
     name: '每次都差一年的人',
     rarity: 12,
-    test: (a) => a.nearMiss >= 4 || (a.nearMiss === 3 && a.caught <= 1),
+    test: (a) => a.nearMiss >= 4,
     blurb: (a) => `他${a.nearMiss}次站在门口，门都在他面前一步关上。`,
   },
   {
@@ -30,7 +30,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'comeback',
     name: '逆袭的人',
     rarity: 9,
-    test: (a) => a.birthTierRank <= 1 && a.finalWealth >= 65,
+    test: (a) => a.birthTierRank <= 1 && a.finalWealth >= 60,
     blurb: () => '起点排在很后面，终点排在很前面。',
   },
   {
@@ -44,21 +44,21 @@ export const TITLES: readonly TitleDef[] = [
     id: 'young_success',
     name: '少年得志',
     rarity: 7,
-    test: (a) => a.earlyHits >= 3 && a.earlyHits >= a.lateHits + 2,
+    test: (a) => a.earlyHits >= 6 && a.earlyHits >= a.lateHits + 3,
     blurb: () => '他最好的那几年，来得很早。',
   },
   {
     id: 'late_bloomer',
     name: '大器晚成',
     rarity: 6,
-    test: (a) => a.lateHits >= 4 && a.lateHits >= a.earlyHits,
+    test: (a) => a.lateHits >= 3 && a.lateHits >= a.earlyHits,
     blurb: () => '他的运气来得晚，但到底来了。',
   },
   {
     id: 'restless',
     name: '折腾的人',
     rarity: 5,
-    test: (a) => a.jobChanges + a.moves + a.startups >= 4 && a.wealthVariance >= 180,
+    test: (a) => a.jobChanges + a.moves + a.startups >= 4 && a.wealthVariance >= 120,
     blurb: () => '他换过很多条路，每条都走了一段。',
   },
   {
@@ -72,7 +72,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'small_life',
     name: '过小日子的人',
     rarity: 3,
-    test: (a) => a.hitRate >= 0.25 && a.hitRate <= 0.65 && a.happinessAvg >= 54 && a.familyFinal >= 58,
+    test: (a) => a.hitRate >= 0.25 && a.hitRate <= 0.65 && a.happinessAvg >= 56 && a.familyFinal >= 60,
     blurb: () => '没什么大事发生，日子一天一天过下来了。',
   },
   {

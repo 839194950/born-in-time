@@ -148,4 +148,16 @@ export const BROADCAST_EVENTS: EventDef[] = [
     ledgerWeight: 1,
     source: '国家卫生健康委员会 2020 年 1 月起的新冠肺炎疫情通报与防控措施',
   },
+  {
+    id: 'bc_btc_69000_2021',
+    layer: 'era',
+    trigger: { type: 'year', year: 2021 },
+    windowAge: [0, 100],
+    broadcast: true,
+    title: '比特币六万九',
+    body: '这一年 11 月，比特币涨到六万九千美元。同年 9 月，央行等十部门发文，明确虚拟货币相关业务活动属于非法金融活动。',
+    choices: [],
+    ledgerWeight: 1,
+    source: '2021 年 11 月比特币最高约 69000 美元（CoinMarketCap）；2021 年 9 月 24 日央行等十部门《关于进一步防范和处置虚拟货币交易炒作风险的通知》',
+  },
 ];
