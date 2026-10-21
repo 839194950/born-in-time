@@ -1,0 +1,437 @@
+import { ALL_EVENTS } from '../data/events';
+import { pickName } from '../data/names';
+import { rollBirth } from './birth';
+import { findDueBroadcasts, findDueEvents, pickVariantText, type EventCtx } from './catalog';
+import { defaultFocusFor, focusOptionById, focusOptionsFor, stageForAge } from './focus';
+import { formatEffects } from './format';
+import { recordJudgement } from './ledger';
+import { evaluateChoice } from './options';
+import { createRng, type Rng } from './rng';
+import {
+  STAT_TUNING,
+  adaptHappiness,
+  applyEffects,
+  healthDecay,
+  initialStats,
+  wealthGain,
+} from './stats';
+import { judgeWindow } from './window';
+import type {
+  Birth,
+  DeathInfo,
+  EventDef,
+  FamilyMember,
+  FocusOption,
+  LedgerEntry,
+  Stage,
+  Stats,
+  TimelineEntry,
+  Verdict,
+  WindowJudgement,
+  YearSnapshot,
+} from './types';
+
+export type Phase = 'playing' | 'awaitingChoice' | 'dead';
+
+export interface ResolvedChoice {
+  id: string;
+  label: string;
+  state: 'available' | 'locked';
+  reason?: string;
+  effectsText: string;
+  /** 概率型选项不显示概率数值，只标注成败未定 */
+  uncertain: boolean;
+}
+
+export interface PendingEvent {
+  event: EventDef;
+  judgement: WindowJudgement;
+  text: string;
+  choices: ResolvedChoice[];
+}
+
+export interface GameSnapshot {
+  phase: Phase;
+  birth: Birth;
+  year: number;
+  age: number;
+  stats: Stats;
+  stage: Stage;
+  focusId: string;
+  focusOptions: readonly FocusOption[];
+  family: FamilyMember[];
+  pendingEvent: PendingEvent | null;
+  timeline: TimelineEntry[];
+  snapshots: YearSnapshot[];
+  ledger: LedgerEntry[];
+  flags: string[];
+  death: DeathInfo | null;
+}
+
+export interface TickResult {
+  year: number;
+  age: number;
+  broadcasts: string[];
+  triggered: PendingEvent | null;
+  died: boolean;
+}
+
+export interface GameOptions {
+  seed: number;
+  birth?: Birth;
+  catalog?: readonly EventDef[];
+}
+
+const MAX_AGE = 120;
+
+export class Game {
+  private readonly catalog: readonly EventDef[];
+  private readonly rng: Rng;
+  private readonly birth: Birth;
+
+  private phase: Phase = 'playing';
+  private year: number;
+  private age = 0;
+  private stats: Stats;
+  private stage: Stage = 'infant';
+  private focusId = '';
+  private family: FamilyMember[] = [];
+  private pending: PendingEvent | null = null;
+  private timeline: TimelineEntry[] = [];
+  private snapshots: YearSnapshot[] = [];
+  private ledger: LedgerEntry[] = [];
+  private flags: string[] = [];
+  private death: DeathInfo | null = null;
+  private firedIds = new Set<string>();
+  private deathBase = 0;
+  private started = false;
+
+  private version = 0;
+  private cache: GameSnapshot | null = null;
+  private readonly listeners = new Set<() => void>();
+
+  constructor(opts: GameOptions) {
+    this.catalog = opts.catalog ?? ALL_EVENTS;
+    this.rng = createRng(opts.seed);
+    this.birth = opts.birth ?? rollBirth(this.rng);
+    this.year = this.birth.year;
+    this.stats = initialStats(this.birth);
+    this.focusId = defaultFocusFor('infant');
+  }
+
+  static fromBirth(birth: Birth, seed: number, catalog?: readonly EventDef[]): Game {
+    return new Game({ seed, birth, catalog });
+  }
+
+  getVersion(): number {
+    return this.version;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  get snapshot(): GameSnapshot {
+    if (!this.cache) this.cache = this.buildSnapshot();
+    return this.cache;
+  }
+
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.stage = stageForAge(this.age);
+    if (this.birth.siblings === 0) this.flags.push('only_child');
+    const parentJobs = [this.birth.fatherJob, this.birth.motherJob];
+    if (parentJobs.some((j) => j === 'worker')) this.flags.push('worker_family');
+    if (parentJobs.some((j) => j === 'farmer')) this.flags.push('farmer_family');
+    this.family = this.buildFamily();
+    // 死亡基准只在开局抽一次；健康修正每年现算，所以把身体搞垮会真的少活几年
+    this.deathBase = Math.round(
+      this.birth.cohortLifeExpectancy + this.rng.next() * STAT_TUNING.deathNoiseYears * 2 - STAT_TUNING.deathNoiseYears,
+    );
+    this.touch();
+  }
+
+  setFocus(id: string): void {
+    if (!focusOptionsFor(this.stage).some((o) => o.id === id)) return;
+    this.focusId = id;
+    this.touch();
+  }
+
+  tick(): TickResult {
+    this.assertStarted();
+    if (this.phase === 'dead') throw new Error('这一生已经结束了');
+    if (this.phase === 'awaitingChoice') throw new Error('请先做出抉择');
+
+    this.year += 1;
+    this.age += 1;
+    this.stage = stageForAge(this.age);
+    if (!focusOptionsFor(this.stage).some((o) => o.id === this.focusId)) {
+      this.focusId = defaultFocusFor(this.stage);
+    }
+
+    let stats = applyEffects(this.stats, { health: healthDecay(this.age) });
+    const option = focusOptionById(this.stage, this.focusId);
+    if (option) {
+      const eff: Partial<Stats> = { ...option.effects };
+      if (eff.wealth !== undefined) eff.wealth = wealthGain(stats, eff.wealth);
+      stats = applyEffects(stats, eff);
+    }
+    stats = adaptHappiness(stats);
+    this.stats = stats;
+    this.snapshots.push({ year: this.year, age: this.age, happiness: stats.happiness, stats: { ...stats } });
+
+    if (this.age >= this.deathAge) {
+      this.die();
+      this.touch();
+      return { year: this.year, age: this.age, broadcasts: [], triggered: null, died: true };
+    }
+
+    const ctx = this.eventCtx();
+    const broadcasts: string[] = [];
+    for (const b of findDueBroadcasts(ctx, this.catalog, this.firedIds)) {
+      this.firedIds.add(b.id);
+      const line = `${b.title}：${pickVariantText(b, this.birth.urban)}`;
+      this.timeline.push({ year: this.year, age: this.age, kind: 'broadcast', text: line });
+      broadcasts.push(line);
+    }
+
+    let triggered: PendingEvent | null = null;
+    const due = findDueEvents(ctx, this.catalog, this.firedIds);
+    const next = due[0];
+    if (next) triggered = this.trigger(next);
+
+    this.touch();
+    return { year: this.year, age: this.age, broadcasts, triggered, died: false };
+  }
+
+  resolve(choiceId: string): TickResult {
+    this.assertStarted();
+    if (this.phase !== 'awaitingChoice' || !this.pending) throw new Error('当前没有待决的抉择');
+
+    const resolved = this.pending.choices.find((c) => c.id === choiceId);
+    if (!resolved) throw new Error(`没有这个选项：${choiceId}`);
+    if (resolved.state === 'locked') throw new Error('locked');
+
+    const event = this.pending.event;
+    const def = event.choices.find((c) => c.id === choiceId);
+    if (!def) throw new Error(`没有这个选项：${choiceId}`);
+
+    let effects: Partial<Stats> | undefined = def.effects;
+    let outcome = def.outcome;
+    const setFlags = [...(def.setFlags ?? [])];
+
+    if (def.probability && def.probability.length > 0) {
+      const picked = this.rng.weighted(def.probability.map((p) => ({ v: p, w: p.p })));
+      outcome = picked.outcome;
+      effects = mergeEffects(def.effects, picked.effects);
+      setFlags.push(...(picked.setFlags ?? []));
+    }
+
+    if (effects) {
+      const adjusted: Partial<Stats> = { ...effects };
+      if (adjusted.wealth !== undefined) adjusted.wealth = wealthGain(this.stats, adjusted.wealth);
+      this.stats = applyEffects(this.stats, adjusted);
+    }
+
+    for (const f of def.clearFlags ?? []) this.flags = this.flags.filter((x) => x !== f);
+    for (const f of setFlags) if (!this.flags.includes(f)) this.flags.push(f);
+    this.syncFamily(setFlags);
+
+    this.timeline.push({
+      year: this.year,
+      age: this.age,
+      kind: 'event',
+      text: `${event.title}：${def.label}。${outcome}`,
+    });
+
+    this.ledger = this.ledger.map((e) =>
+      e.eventId === event.id ? { ...e, choiceId: def.id, choiceLabel: def.label } : e,
+    );
+
+    this.pending = null;
+    this.phase = 'playing';
+    this.touch();
+    return { year: this.year, age: this.age, broadcasts: [], triggered: null, died: false };
+  }
+
+  /** 快转到下一个抉择（或死亡） */
+  advanceToDecision(): TickResult[] {
+    const out: TickResult[] = [];
+    let guard = 0;
+    while (this.phase === 'playing' && guard++ < MAX_AGE * 2) out.push(this.tick());
+    return out;
+  }
+
+  private assertStarted(): void {
+    if (!this.started) throw new Error('先调用 start()');
+  }
+
+  private get deathAge(): number {
+    const shift = ((this.stats.health - 50) / 50) * STAT_TUNING.healthLifeMod;
+    return Math.min(MAX_AGE, Math.round(this.deathBase + shift));
+  }
+
+  private die(): void {
+    this.phase = 'dead';
+    this.pending = null;
+    const birthMs = Date.UTC(this.birth.year, this.birth.month - 1, 15);
+    const deathMs = Date.UTC(this.year, 5, 15);
+    this.death = {
+      year: this.year,
+      age: this.age,
+      daysLived: Math.max(1, Math.round((deathMs - birthMs) / 86400000)),
+    };
+  }
+
+  private eventCtx(): EventCtx {
+    return {
+      age: this.age,
+      year: this.year,
+      urban: this.birth.urban,
+      tier: this.birth.tier,
+      stats: this.stats,
+      flags: this.flags,
+    };
+  }
+
+  private trigger(event: EventDef): PendingEvent {
+    this.firedIds.add(event.id);
+
+    const judgement = judgeWindow({
+      birthYear: this.birth.year,
+      birthMonth: this.birth.month,
+      eventYear: this.year,
+      windowAge: event.windowAge,
+      edgeYears: event.edgeYears,
+      secondWindowAge: event.secondWindowAge,
+    });
+
+    // 账本只记时代窗口；人生阶段事件没有“窗口”可比
+    if (event.layer === 'era') {
+      this.ledger = recordJudgement(this.ledger, {
+        eventId: event.id,
+        title: event.title,
+        year: this.year,
+        age: this.age,
+        verdict: judgement.verdict,
+        gapMonths: judgement.gapMonths,
+        weight: event.ledgerWeight,
+        lastTrain: event.lastTrain === true,
+      });
+    }
+
+    const choices: ResolvedChoice[] = event.choices.map((c) => {
+      const r = evaluateChoice(c, {
+        year: this.year,
+        stats: this.stats,
+        tier: this.birth.tier,
+        flags: this.flags,
+        urban: this.birth.urban,
+      });
+      return {
+        id: c.id,
+        label: c.label,
+        state: r.state,
+        ...(r.state === 'locked' ? { reason: r.reason } : {}),
+        effectsText: formatEffects(c.effects),
+        uncertain: (c.probability?.length ?? 0) > 0,
+      };
+    });
+
+    this.pending = {
+      event,
+      judgement,
+      text: pickVariantText(event, this.birth.urban),
+      choices,
+    };
+    this.phase = 'awaitingChoice';
+    return this.pending;
+  }
+
+  private buildFamily(): FamilyMember[] {
+    const fatherAge = this.rng.int(24, 32);
+    const motherAge = fatherAge - this.rng.int(0, 4);
+    const members: FamilyMember[] = [
+      {
+        role: 'father',
+        name: pickName(this.rng, 'male', this.birth.year - fatherAge),
+        birthYear: this.birth.year - fatherAge,
+      },
+      {
+        role: 'mother',
+        name: pickName(this.rng, 'female', this.birth.year - motherAge),
+        birthYear: this.birth.year - motherAge,
+      },
+    ];
+    for (let i = 0; i < this.birth.siblings; i++) {
+      const gap = 2 + i * 3;
+      const gender = this.rng.chance(0.5) ? 'male' : 'female';
+      members.push({
+        role: 'sibling',
+        name: pickName(this.rng, gender, this.birth.year - gap),
+        birthYear: this.birth.year - gap,
+      });
+    }
+    return members;
+  }
+
+  private syncFamily(setFlags: readonly string[]): void {
+    if (setFlags.includes('married') && !this.family.some((f) => f.role === 'spouse')) {
+      const gender = this.birth.gender === 'male' ? 'female' : 'male';
+      const age = this.rng.int(22, 30);
+      this.family.push({
+        role: 'spouse',
+        name: pickName(this.rng, gender, this.year - age),
+        birthYear: this.year - age,
+      });
+    }
+    if (setFlags.includes('child_born') && !this.family.some((f) => f.role === 'child')) {
+      const gender = this.rng.chance(0.5) ? 'male' : 'female';
+      this.family.push({
+        role: 'child',
+        name: pickName(this.rng, gender, this.year),
+        birthYear: this.year,
+      });
+    }
+  }
+
+  private buildSnapshot(): GameSnapshot {
+    return {
+      phase: this.phase,
+      birth: { ...this.birth },
+      year: this.year,
+      age: this.age,
+      stats: { ...this.stats },
+      stage: this.stage,
+      focusId: this.focusId,
+      focusOptions: focusOptionsFor(this.stage),
+      family: this.family.map((f) => ({ ...f })),
+      pendingEvent: this.pending,
+      timeline: [...this.timeline],
+      snapshots: this.snapshots.map((s) => ({ ...s, stats: { ...s.stats } })),
+      ledger: this.ledger.map((e) => ({ ...e })),
+      flags: [...this.flags],
+      death: this.death ? { ...this.death } : null,
+    };
+  }
+
+  private touch(): void {
+    this.version += 1;
+    this.cache = null;
+    for (const listener of this.listeners) listener();
+  }
+}
+
+function mergeEffects(a?: Partial<Stats>, b?: Partial<Stats>): Partial<Stats> | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const out: Partial<Stats> = { ...a };
+  for (const key of Object.keys(b) as (keyof Stats)[]) {
+    out[key] = (out[key] ?? 0) + (b[key] ?? 0);
+  }
+  return out;
+}
+
+export type { Verdict };

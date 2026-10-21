@@ -40,8 +40,10 @@ const ERA_NAMES: readonly NameEra[] = [
   },
 ];
 
+/** 早于第一段的年份（如父母出生年）归入第一段，避免 1953 年生的人叫“子轩” */
 function eraFor(year: number): NameEra {
-  return ERA_NAMES.find((e) => year >= e.from && year <= e.to) ?? ERA_NAMES[ERA_NAMES.length - 1]!;
+  for (const era of ERA_NAMES) if (year <= era.to) return era;
+  return ERA_NAMES[ERA_NAMES.length - 1]!;
 }
 
 /** 该年代该性别的候选名，测试与调试用 */
