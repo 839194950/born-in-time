@@ -239,6 +239,41 @@ export const ERA_EVENTS: EventDef[] = [
     source: '世界贸易组织第四届部长级会议 2001 年 11 月 10 日通过中国入世决定',
   },
   {
+    id: 'era_internet_2003',
+    layer: 'era',
+    trigger: { type: 'year', year: 2003 },
+    windowAge: [25, 35],
+    title: '网上开店',
+    body: '这一年，网上开店的人还不多。有人把店里的货拍了照片，挂到一个刚开张的网站上，第二天真有人下了单。',
+    variants: {
+      rural: '这一年，镇上的网吧开到了第三家，一小时两块钱。同村有个年轻人，靠一台电脑把山货卖到了外省。',
+    },
+    choices: [
+      {
+        id: 'open_shop',
+        label: '也开个网店试试',
+        requires: { statMin: { ability: 45 } },
+        lockedText: '你连注册账号都弄不利索',
+        effects: { health: -1, family: -1 },
+        outcome: '你借了台相机，把货摆在床单上拍了一晚上。',
+        setFlags: ['online_business'],
+        probability: [
+          { p: 0.45, outcome: '第二年，你的店升到了皇冠。', effects: { wealth: 7 } },
+          { p: 0.55, outcome: '店开了半年，一共出过九单，你把货退回了仓库。', effects: { wealth: -4 } },
+        ],
+      },
+      {
+        id: 'wait',
+        label: '先看看再说',
+        effects: { happiness: 1, family: 1 },
+        outcome: '你听说有人在网上赚了钱，但没太当真。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 4,
+    source: '淘宝网 2003 年 5 月上线；CNNIC 第 12 次《中国互联网络发展状况统计报告》（2003 年 7 月，网民约 6800 万）',
+  },
+  {
     id: 'era_financial_crisis_2008',
     layer: 'era',
     trigger: { type: 'year', year: 2008 },
