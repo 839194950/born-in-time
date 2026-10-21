@@ -174,7 +174,8 @@ export interface DeathInfo {
   daysLived: number;
 }
 
-export type AxisKey = 'companion' | 'work' | 'root' | 'wave' | 'calm' | 'now' | 'future';
+/** 四轴：陪伴–工作 / 根–风 / 平静–浪潮 / 今天–明天 */
+export type AxisKey = 'companion' | 'work' | 'root' | 'wind' | 'calm' | 'wave' | 'now' | 'future';
 export type AxisDelta = Partial<Record<AxisKey, number>>;
 
 export interface FocusOption {
