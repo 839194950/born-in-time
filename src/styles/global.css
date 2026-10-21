@@ -1,0 +1,52 @@
+:root {
+  --ink: #1b1a17;
+  --paper: #f4efe4;
+  --muted: #6f6a5f;
+  --accent: #b23a2f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.app-shell h1 {
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+}
+
+.app-shell p {
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+}
+
+img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+}
