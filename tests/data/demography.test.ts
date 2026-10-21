@@ -26,16 +26,17 @@ describe('城镇化率', () => {
     expect(urbanizationRate(2002)).toBeCloseTo(0.3909, 4);
   });
 
-  it('总体上升，但允许 1991 年那 0.04 个点的回落', () => {
-    expect(urbanizationRate(2002)).toBeGreaterThan(urbanizationRate(1977));
-    for (let y = YEAR_FROM + 1; y <= YEAR_TO; y++) {
+  it('1970 年以后总体上升（1960 年代初那一段是历史回落，不强行平滑）', () => {
+    expect(urbanizationRate(2005)).toBeGreaterThan(urbanizationRate(1958));
+    expect(urbanizationRate(1991)).toBeLessThan(urbanizationRate(1990));
+    for (let y = 1970; y <= YEAR_TO; y++) {
       expect(urbanizationRate(y)).toBeGreaterThan(urbanizationRate(y - 1) - 0.01);
     }
   });
 
   it('年份越界时夹到边界，不返回 NaN', () => {
-    expect(urbanizationRate(1900)).toBeCloseTo(urbanizationRate(1977), 6);
-    expect(urbanizationRate(2100)).toBeCloseTo(urbanizationRate(2002), 6);
+    expect(urbanizationRate(1900)).toBeCloseTo(urbanizationRate(YEAR_FROM), 6);
+    expect(urbanizationRate(2100)).toBeCloseTo(urbanizationRate(YEAR_TO), 6);
   });
 
   it('2000 年要有口径说明，别的年份没有', () => {
@@ -46,9 +47,17 @@ describe('城镇化率', () => {
 });
 
 describe('出生人口权重', () => {
-  it('覆盖 1977–2002 且全为正', () => {
-    expect(BIRTH_YEARS).toHaveLength(26);
+  it('覆盖 1958–2005 且全为正', () => {
+    expect(BIRTH_YEARS).toHaveLength(YEAR_TO - YEAR_FROM + 1);
+    expect(BIRTH_YEARS[0]).toBe(1958);
+    expect(BIRTH_YEARS[BIRTH_YEARS.length - 1]).toBe(2005);
     for (const y of BIRTH_YEARS) expect(yearWeight(y)).toBeGreaterThan(0);
+  });
+
+  it('权重开过方，峰谷比不再悬殊', () => {
+    const max = Math.max(...BIRTH_YEARS.map(yearWeight));
+    const min = Math.min(...BIRTH_YEARS.map(yearWeight));
+    expect(max / min).toBeLessThan(1.6);
   });
 
   it('80 年代中后期与 2000 年前后是相对高峰', () => {
@@ -61,7 +70,8 @@ describe('队列预期寿命', () => {
   it('城市高于农村，且随年代上升', () => {
     expect(cohortLifeExpectancy(2002, true)).toBeGreaterThan(cohortLifeExpectancy(2002, false));
     expect(cohortLifeExpectancy(2002, true)).toBeGreaterThan(cohortLifeExpectancy(1977, true));
-    expect(cohortLifeExpectancy(1950, true)).toBe(cohortLifeExpectancy(1977, true));
+    expect(cohortLifeExpectancy(1900, true)).toBe(cohortLifeExpectancy(1958, true));
+    expect(cohortLifeExpectancy(1958, true)).toBeLessThan(cohortLifeExpectancy(1977, true));
   });
 });
 

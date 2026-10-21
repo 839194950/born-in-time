@@ -421,8 +421,12 @@ export class Game {
 
     const text = pickVariantText(event, this.birth.urban);
 
+    // 条件专属事件是“你身上确实发生过的事”，不存在路过一说；
+    // 窗口只用来在核验表里标注建议年龄。
+    const verdict = event.layer === 'conditional' ? 'caught' : judgement.verdict;
+
     // 路过：只留一行背景播报，不打断玩家的时间
-    if (judgement.verdict === 'passedBy') {
+    if (verdict === 'passedBy') {
       this.timeline.push({
         year: this.year,
         age: this.age,
@@ -433,7 +437,7 @@ export class Game {
     }
 
     // 差一年：给文案不给选项 —— “看得见但够不着”本身就是叙事
-    const choices: ResolvedChoice[] = (judgement.verdict === 'nearMiss' ? [] : event.choices).map((c) => {
+    const choices: ResolvedChoice[] = (verdict === 'nearMiss' ? [] : event.choices).map((c) => {
       const r = evaluateChoice(c, {
         year: this.year,
         stats: this.stats,
@@ -451,7 +455,7 @@ export class Game {
       };
     });
 
-    this.pending = { event, judgement, text, choices };
+    this.pending = { event, judgement: { ...judgement, verdict }, text, choices };
     this.phase = 'awaitingChoice';
     return this.pending;
   }

@@ -239,7 +239,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
         label: '这就是往后的家',
         effects: { wealth: 6, family: 3, happiness: 2 },
         outcome: '那套房后来一直没卖，成了这个家最稳的一样东西。',
-        setFlags: ['has_home'],
+        setFlags: ['family_home'],
         default: true,
       },
       {

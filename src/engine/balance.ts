@@ -13,6 +13,7 @@ export interface BatchRow {
   lateHits: number;
   jobChanges: number;
   moves: number;
+  lastTrainHits: number;
   titleId: string;
   titleName: string;
   deathAge: number;
@@ -49,6 +50,7 @@ export function runOne(seed: number): BatchRow {
     lateHits: ending.aggregate.lateHits,
     jobChanges: ending.aggregate.jobChanges,
     moves: ending.aggregate.moves,
+    lastTrainHits: ending.aggregate.lastTrainHits,
     titleId: ending.title.id,
     titleName: ending.title.name,
     deathAge: ending.aggregate.deathAge,
@@ -75,6 +77,7 @@ export interface BatchSummary {
   avgMoves: number;
   avgDeathDelta: number;
   maxDeathDelta: number;
+  lastTrainShare: number;
   titleShare: Record<string, number>;
   saturatedShare: number;
 }
@@ -95,6 +98,8 @@ export function summarizeBatch(rows: readonly BatchRow[]): BatchSummary {
   let moves = 0;
   let deathDelta = 0;
   let maxDeathDelta = -99;
+  let anyLastTrain = 0;
+  let twoLastTrain = 0;
 
   for (const row of rows) {
     titleCount.set(row.titleName, (titleCount.get(row.titleName) ?? 0) + 1);
@@ -110,6 +115,8 @@ export function summarizeBatch(rows: readonly BatchRow[]): BatchSummary {
     moves += row.moves;
     deathDelta += row.deathDelta;
     maxDeathDelta = Math.max(maxDeathDelta, row.deathDelta);
+    if (row.lastTrainHits >= 1) anyLastTrain++;
+    if (row.lastTrainHits >= 2) twoLastTrain++;
     for (const value of Object.values(row.finalStats)) {
       statCells++;
       if (value > 95 || value < 5) saturated++;
@@ -134,6 +141,7 @@ export function summarizeBatch(rows: readonly BatchRow[]): BatchSummary {
     avgMoves: moves / n,
     avgDeathDelta: deathDelta / n,
     maxDeathDelta,
+    lastTrainShare: twoLastTrain / n,
     titleShare,
     saturatedShare: statCells === 0 ? 0 : saturated / statCells,
   };

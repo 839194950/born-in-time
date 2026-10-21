@@ -31,6 +31,25 @@ function interpolate(anchors: Anchors, year: number): number {
  * 是第五次全国人口普查的统计口径调整，不是真实一年涨了 5 个点。
  */
 const YEAR_URBAN: Readonly<Record<number, number>> = {
+  1958: 0.162,
+  1959: 0.184,
+  1960: 0.197,
+  1961: 0.193,
+  1962: 0.173,
+  1963: 0.168,
+  1964: 0.184,
+  1965: 0.18,
+  1966: 0.179,
+  1967: 0.177,
+  1968: 0.176,
+  1969: 0.175,
+  1970: 0.174,
+  1971: 0.173,
+  1972: 0.171,
+  1973: 0.172,
+  1974: 0.172,
+  1975: 0.173,
+  1976: 0.174,
   1977: 0.1755,
   1978: 0.1792,
   1979: 0.1896,
@@ -57,6 +76,9 @@ const YEAR_URBAN: Readonly<Record<number, number>> = {
   2000: 0.3622,
   2001: 0.3766,
   2002: 0.3909,
+  2003: 0.405,
+  2004: 0.418,
+  2005: 0.43,
 };
 
 export function urbanizationRate(year: number): number {
@@ -74,7 +96,26 @@ export function urbanizationCaveat(year: number): string | null {
  * 1987 年前后为峰（约 2550 万），2002 年为谷（约 1650 万）。
  * 来源：国家统计局历年出生人口数，取整。
  */
-const YEAR_WEIGHT: Readonly<Record<number, number>> = {
+const BIRTH_COUNT: Readonly<Record<number, number>> = {
+  1958: 17.2,
+  1959: 16.5,
+  1960: 13.9,
+  1961: 11.9,
+  1962: 24.6,
+  1963: 29.5,
+  1964: 27.2,
+  1965: 27.0,
+  1966: 25.8,
+  1967: 25.4,
+  1968: 27.5,
+  1969: 27.2,
+  1970: 27.1,
+  1971: 25.6,
+  1972: 25.5,
+  1973: 24.6,
+  1974: 22.5,
+  1975: 21.2,
+  1976: 18.5,
   1977: 17.9,
   1978: 17.5,
   1979: 17.3,
@@ -101,10 +142,19 @@ const YEAR_WEIGHT: Readonly<Record<number, number>> = {
   2000: 17.7,
   2001: 17.0,
   2002: 16.5,
+  2003: 15.9,
+  2004: 16.0,
+  2005: 16.2,
 };
 
+/**
+ * 抽签权重 = 出生人口数的平方根。
+ * 直接按人口数抽会让 1963（2950 万）和 1987（2550 万）形成两个尖峰，
+ * 其余年份几乎抽不到；开方后峰谷比从 1.9 倍压到 1.35 倍，年份分布更像“随便抽”。
+ */
 export function yearWeight(year: number): number {
-  return YEAR_WEIGHT[year] ?? 1;
+  const count = BIRTH_COUNT[year];
+  return count === undefined ? 1 : Math.sqrt(count);
 }
 
 /**
@@ -113,12 +163,16 @@ export function yearWeight(year: number): number {
  * 2002 年城镇约 78、农村约 72。中间年份线性。
  */
 const LIFE_URBAN: Anchors = [
+  [1958, 66],
   [1977, 70],
   [2002, 78],
+  [2005, 78.5],
 ];
 const LIFE_RURAL: Anchors = [
+  [1958, 62],
   [1977, 66],
   [2002, 72],
+  [2005, 72.5],
 ];
 
 export function cohortLifeExpectancy(year: number, urban: boolean): number {

@@ -16,6 +16,7 @@ describe('数值与节奏（600 局批跑）', () => {
         `mean early/late: ${summary.avgEarlyHits.toFixed(1)} / ${summary.avgLateHits.toFixed(1)}`,
         `mean jobs/moves: ${summary.avgJobChanges.toFixed(1)} / ${summary.avgMoves.toFixed(1)}`,
         `death delta: mean ${summary.avgDeathDelta.toFixed(1)} / max ${summary.maxDeathDelta}`,
+        `last train (>=2): ${(summary.lastTrainShare * 100).toFixed(2)}%`,
         `saturated share: ${(summary.saturatedShare * 100).toFixed(1)}%`,
         ...Object.entries(summary.titleShare)
           .sort((a, b) => b[1] - a[1])

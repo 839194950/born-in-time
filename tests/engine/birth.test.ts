@@ -1,20 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { cohortLifeExpectancy, urbanizationRate } from '../../src/data/demography';
+import { cohortLifeExpectancy, urbanizationRate, yearWeight } from '../../src/data/demography';
 import { PROVINCES } from '../../src/data/provinces';
 import { rollBirth } from '../../src/engine/birth';
 import { createRng } from '../../src/engine/rng';
+import { YEAR_FROM, YEAR_TO } from '../../src/engine/types';
 
 describe('rollBirth', () => {
   it('同种子结果完全一致', () => {
     expect(rollBirth(createRng(77))).toEqual(rollBirth(createRng(77)));
   });
 
-  it('年份落在 1977–2002，月份落在 1–12', () => {
+  it('年份落在 1958–2005，月份落在 1–12', () => {
     const r = createRng(1);
     for (let i = 0; i < 500; i++) {
       const b = rollBirth(r);
-      expect(b.year).toBeGreaterThanOrEqual(1977);
-      expect(b.year).toBeLessThanOrEqual(2002);
+      expect(b.year).toBeGreaterThanOrEqual(1958);
+      expect(b.year).toBeLessThanOrEqual(2005);
       expect(Number.isInteger(b.year)).toBe(true);
       expect(b.month).toBeGreaterThanOrEqual(1);
       expect(b.month).toBeLessThanOrEqual(12);
@@ -31,13 +32,21 @@ describe('rollBirth', () => {
     }
   });
 
-  it('城乡比例贴近城镇化率', () => {
+  it('城乡比例贴近当年城镇化率的加权平均', () => {
     const r = createRng(9);
     const n = 20000;
     let urban = 0;
     for (let i = 0; i < n; i++) if (rollBirth(r).urban) urban++;
-    // 1977–2002 全期加权平均约 0.265
-    expect(Math.abs(urban / n - 0.265)).toBeLessThan(0.03);
+
+    // 期望值直接从同一张表算，改生年范围时这条测试不用跟着改
+    let weightSum = 0;
+    let expected = 0;
+    for (let y = YEAR_FROM; y <= YEAR_TO; y++) {
+      const w = yearWeight(y);
+      weightSum += w;
+      expected += w * urbanizationRate(y);
+    }
+    expect(Math.abs(urban / n - expected / weightSum)).toBeLessThan(0.03);
   });
 
   it('独生与兄弟姐妹数自洽', () => {

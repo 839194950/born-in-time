@@ -23,14 +23,14 @@ export const TITLES: readonly TitleDef[] = [
     id: 'last_train',
     name: '最后一班车的人',
     rarity: 10,
-    test: (a) => a.lastTrainHits >= 1,
+    test: (a) => a.lastTrainHits >= 2 || (a.lastTrainHits >= 1 && a.caught >= 6),
     blurb: () => '门关之前，他挤了进去。',
   },
   {
     id: 'comeback',
     name: '逆袭的人',
     rarity: 9,
-    test: (a) => a.birthTierRank <= 1 && a.finalWealth >= 60,
+    test: (a) => a.birthTierRank <= 1 && a.finalWealth >= 66,
     blurb: () => '起点排在很后面，终点排在很前面。',
   },
   {

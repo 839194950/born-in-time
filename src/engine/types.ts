@@ -1,5 +1,6 @@
-export const YEAR_FROM = 1977;
-export const YEAR_TO = 2002;
+/** 生年范围：1958–2005。规格原文是 1977–2002，2026-10 按用户要求放宽，见 docs/实现偏离规格清单.md */
+export const YEAR_FROM = 1958;
+export const YEAR_TO = 2005;
 export const STAT_MIN = 0;
 export const STAT_MAX = 100;
 
