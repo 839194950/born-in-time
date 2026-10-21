@@ -93,6 +93,9 @@ export interface GameOptions {
 
 const MAX_AGE = 120;
 
+/** 差一年时没有选项，只有一个“继续”把弹窗关掉 */
+export const CONTINUE_CHOICE_ID = '__continue__';
+
 export class Game {
   private readonly catalog: readonly EventDef[];
   private readonly rng: Rng;
@@ -220,6 +223,20 @@ export class Game {
     this.assertStarted();
     if (this.phase !== 'awaitingChoice' || !this.pending) throw new Error('当前没有待决的抉择');
 
+    if (this.pending.choices.length === 0) {
+      if (choiceId !== CONTINUE_CHOICE_ID) throw new Error(`没有这个选项：${choiceId}`);
+      this.timeline.push({
+        year: this.year,
+        age: this.age,
+        kind: 'event',
+        text: `${this.pending.event.title}：只差一点，没赶上。`,
+      });
+      this.pending = null;
+      this.phase = 'playing';
+      this.touch();
+      return { year: this.year, age: this.age, broadcasts: [], triggered: null, died: false };
+    }
+
     const resolved = this.pending.choices.find((c) => c.id === choiceId);
     if (!resolved) throw new Error(`没有这个选项：${choiceId}`);
     if (resolved.state === 'locked') throw new Error('locked');
@@ -319,7 +336,7 @@ export class Game {
     };
   }
 
-  private trigger(event: EventDef): PendingEvent {
+  private trigger(event: EventDef): PendingEvent | null {
     this.firedIds.add(event.id);
 
     const judgement = judgeWindow({
@@ -345,7 +362,21 @@ export class Game {
       });
     }
 
-    const choices: ResolvedChoice[] = event.choices.map((c) => {
+    const text = pickVariantText(event, this.birth.urban);
+
+    // 路过：只留一行背景播报，不打断玩家的时间
+    if (judgement.verdict === 'passedBy') {
+      this.timeline.push({
+        year: this.year,
+        age: this.age,
+        kind: 'broadcast',
+        text: `${event.title}：${text}`,
+      });
+      return null;
+    }
+
+    // 差一年：给文案不给选项 —— “看得见但够不着”本身就是叙事
+    const choices: ResolvedChoice[] = (judgement.verdict === 'nearMiss' ? [] : event.choices).map((c) => {
       const r = evaluateChoice(c, {
         year: this.year,
         stats: this.stats,
@@ -363,12 +394,7 @@ export class Game {
       };
     });
 
-    this.pending = {
-      event,
-      judgement,
-      text: pickVariantText(event, this.birth.urban),
-      choices,
-    };
+    this.pending = { event, judgement, text, choices };
     this.phase = 'awaitingChoice';
     return this.pending;
   }

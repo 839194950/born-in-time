@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TITLES } from '../../src/data/titles';
 import { buildAggregate, evaluateEnding, pickHeadline, pickSubtitle } from '../../src/engine/ending';
-import { Game } from '../../src/engine/game';
+import { CONTINUE_CHOICE_ID, Game } from '../../src/engine/game';
 import type { EndingAggregate, LedgerEntry, Verdict } from '../../src/engine/types';
 
 const agg = (over: Partial<EndingAggregate> = {}): EndingAggregate => ({
@@ -149,7 +149,8 @@ describe('buildAggregate', () => {
     let guard = 0;
     while (g.snapshot.phase !== 'dead' && guard++ < 200) {
       if (g.snapshot.phase === 'awaitingChoice') {
-        g.resolve(g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available')!.id);
+        const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
       } else g.tick();
     }
     const a = buildAggregate(g.snapshot);

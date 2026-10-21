@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cohortLifeExpectancy } from '../../src/data/demography';
 import { rollBirth } from '../../src/engine/birth';
-import { Game } from '../../src/engine/game';
+import { CONTINUE_CHOICE_ID, Game } from '../../src/engine/game';
 import { createRng } from '../../src/engine/rng';
 import type { Birth, EventDef } from '../../src/engine/types';
 
@@ -13,8 +13,7 @@ function playToDeath(game: Game): Game {
   while (game.snapshot.phase !== 'dead' && guard++ < 200) {
     if (game.snapshot.phase === 'awaitingChoice') {
       const pick = game.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
-      if (!pick) throw new Error('没有可用选项');
-      game.resolve(pick.id);
+      game.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
     } else {
       game.tick();
     }
@@ -99,8 +98,8 @@ describe('主引擎：抉择', () => {
     g.start();
     while (g.snapshot.phase !== 'awaitingChoice') g.tick();
     const eventId = g.snapshot.pendingEvent!.event.id;
-    const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available')!;
-    g.resolve(pick.id);
+    const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
+    g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
 
     expect(g.snapshot.phase).toBe('playing');
     expect(g.snapshot.pendingEvent).toBeNull();
@@ -111,12 +110,62 @@ describe('主引擎：抉择', () => {
       if (snap.phase === 'dead') break;
       if (snap.phase === 'awaitingChoice') {
         if (snap.pendingEvent!.event.id === eventId) again++;
-        g.resolve(snap.pendingEvent!.choices.find((c) => c.state === 'available')!.id);
+        const pick = snap.pendingEvent!.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
       } else {
         g.tick();
       }
     }
     expect(again).toBe(0);
+  });
+
+  it('判定为路过的事件只留一行播报，不打断时间', () => {
+    const far: EventDef = {
+      id: 'test_passed_by',
+      layer: 'era',
+      trigger: { type: 'year', year: 2000 },
+      windowAge: [40, 50],
+      title: '远处的浪',
+      body: '这浪离你很远。',
+      ledgerWeight: 1,
+      source: '测试',
+      choices: [{ id: 'a', label: 'A', outcome: '' }],
+    };
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [far] });
+    g.start();
+    while (g.snapshot.year < 2000) g.tick();
+
+    expect(g.snapshot.pendingEvent).toBeNull();
+    expect(g.snapshot.phase).toBe('playing');
+    expect(g.snapshot.ledger[0]?.verdict).toBe('passedBy');
+    expect(g.snapshot.timeline.some((t) => t.text.startsWith('远处的浪：'))).toBe(true);
+  });
+
+  it('差一年只给文案不给选项，“继续”之后回到推进', () => {
+    const close: EventDef = {
+      id: 'test_near_miss',
+      layer: 'era',
+      trigger: { type: 'year', year: 2000 },
+      windowAge: [13, 15],
+      title: '差一步的浪',
+      body: '你站在门口。',
+      ledgerWeight: 4,
+      source: '测试',
+      choices: [{ id: 'a', label: 'A', outcome: '' }],
+    };
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [close] });
+    g.start();
+    while (g.snapshot.phase !== 'awaitingChoice') g.tick();
+
+    const pending = g.snapshot.pendingEvent!;
+    expect(pending.judgement.verdict).toBe('nearMiss');
+    expect(pending.judgement.gapMonths).toBe(36);
+    expect(pending.choices).toHaveLength(0);
+    expect(() => g.resolve('a')).toThrow();
+
+    g.resolve(CONTINUE_CHOICE_ID);
+    expect(g.snapshot.phase).toBe('playing');
+    expect(g.snapshot.pendingEvent).toBeNull();
   });
 
   it('抉择悬而未决时不能继续推进时间', () => {
