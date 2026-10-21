@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatEffects } from '../../engine/format';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
 import { STAT_KEYS } from '../../engine/types';
+import { EventModal } from '../components/EventModal';
 import { SceneStage } from '../components/SceneStage';
 import { StatBar } from '../components/StatBar';
 import { Timeline } from '../components/Timeline';
@@ -118,9 +119,11 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
       </section>
 
       {pending && (
-        <div className="event-stub" role="status">
-          {`${pending.event.title}（${pending.judgement.verdict === 'nearMiss' ? '差一年' : '赶上'}）`}
-        </div>
+        <EventModal
+          pending={pending}
+          onPick={(id) => actions.resolve(id)}
+          onContinue={() => actions.resolve(CONTINUE_CHOICE_ID)}
+        />
       )}
 
       <Timeline entries={snapshot.timeline} />

@@ -99,6 +99,7 @@ export const CONTINUE_CHOICE_ID = '__continue__';
 export class Game {
   private readonly catalog: readonly EventDef[];
   private readonly rng: Rng;
+  private readonly seedValue: number;
   private readonly birth: Birth;
 
   private phase: Phase = 'playing';
@@ -125,6 +126,7 @@ export class Game {
 
   constructor(opts: GameOptions) {
     this.catalog = opts.catalog ?? ALL_EVENTS;
+    this.seedValue = opts.seed;
     this.rng = createRng(opts.seed);
     this.birth = opts.birth ?? rollBirth(this.rng);
     this.year = this.birth.year;
@@ -138,6 +140,11 @@ export class Game {
 
   getVersion(): number {
     return this.version;
+  }
+
+  /** 存档要靠它重放，所以种子必须随局保存 */
+  get seed(): number {
+    return this.seedValue;
   }
 
   subscribe(listener: () => void): () => void {

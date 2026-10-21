@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Game, type GameSnapshot } from '../engine/game';
+import { clearCurrent, loadCurrent, restoreGame, serializeGame, saveCurrent } from '../engine/save';
 import type { Birth } from '../engine/types';
 
 export interface GameStore {
@@ -7,6 +8,7 @@ export interface GameStore {
   getSnapshot(): GameSnapshot | null;
   getGame(): Game | null;
   startGame(birth: Birth, seed?: number): void;
+  resume(): boolean;
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
@@ -37,10 +39,34 @@ export function createGameStore(): GameStore {
     },
     startGame(birth, seed = Date.now()) {
       detach?.();
-      game = Game.fromBirth(birth, seed);
-      detach = game.subscribe(emit);
-      game.start();
+      const next = Game.fromBirth(birth, seed);
+      game = next;
+      detach = next.subscribe(() => {
+        if (next.snapshot.phase === 'dead') clearCurrent();
+        else saveCurrent(serializeGame(next));
+        emit();
+      });
+      next.start();
       emit();
+    },
+    resume() {
+      const save = loadCurrent();
+      if (!save) return false;
+      let restored: Game;
+      try {
+        restored = restoreGame(save);
+      } catch {
+        return false;
+      }
+      detach?.();
+      game = restored;
+      detach = restored.subscribe(() => {
+        if (restored.snapshot.phase === 'dead') clearCurrent();
+        else saveCurrent(serializeGame(restored));
+        emit();
+      });
+      emit();
+      return true;
     },
     setFocus(id) {
       game?.setFocus(id);
@@ -61,6 +87,7 @@ export const store = createGameStore();
 
 export interface GameActions {
   startGame(birth: Birth, seed?: number): void;
+  resume(): boolean;
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
@@ -73,6 +100,7 @@ export function useGame(): { snapshot: GameSnapshot | null; actions: GameActions
     snapshot,
     actions: {
       startGame: store.startGame,
+      resume: store.resume,
       setFocus: store.setFocus,
       tick: store.tick,
       resolve: store.resolve,

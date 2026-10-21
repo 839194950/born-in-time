@@ -59,7 +59,15 @@ export function BirthCard({ birth }: { birth: Birth }) {
   );
 }
 
-export default function BirthScreen({ onStart }: { onStart: (birth: Birth) => void }) {
+export default function BirthScreen({
+  onStart,
+  onResume,
+  canResume = false,
+}: {
+  onStart: (birth: Birth) => void;
+  onResume?: () => void;
+  canResume?: boolean;
+}) {
   const [attempt, setAttempt] = useState(0);
   const birth = useMemo(
     () => rollBirth(createRng((Date.now() ^ (attempt * 2654435761)) >>> 0)),
@@ -119,6 +127,12 @@ export default function BirthScreen({ onStart }: { onStart: (birth: Birth) => vo
           就这一年，开始
         </button>
       </div>
+
+      {canResume && onResume && (
+        <button type="button" className="btn-resume" onClick={onResume}>
+          继续上一局
+        </button>
+      )}
     </main>
   );
 }
