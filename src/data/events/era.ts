@@ -110,6 +110,7 @@ export const ERA_EVENTS: EventDef[] = [
     layer: 'era',
     trigger: { type: 'year', year: 1998 },
     windowAge: [22, 45],
+    conditions: { notFlags: ['has_home'] },
     title: '房改：福利分房取消',
     body: '国务院发文停止住房实物分配。单位分房这条走了四十年的路，在这一年走到头。此后房子要自己买。',
     choices: [

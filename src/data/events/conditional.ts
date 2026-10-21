@@ -226,9 +226,9 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     source: '1992 年南方谈话后的下海潮（《中国统计年鉴 1993》个体与私营从业人数）',
   },
   {
-    id: 'cond_parent_house_1998',
+    id: 'cond_parent_house_1997',
     layer: 'conditional',
-    trigger: { type: 'year', year: 1998 },
+    trigger: { type: 'year', year: 1997 },
     windowAge: [0, 21],
     conditions: { urban: true, tierIn: ['normal', 'wellOff', 'rich'] },
     title: '家里那套房',
@@ -250,7 +250,6 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
       },
     ],
     ledgerWeight: 3,
-    lastTrain: true,
     source: '国务院《关于进一步深化城镇住房制度改革加快住房建设的通知》（国发〔1998〕23 号）：1998 年下半年起停止实物分房',
   },
 ];
