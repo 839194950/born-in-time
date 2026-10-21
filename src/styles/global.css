@@ -1,8 +1,13 @@
 :root {
   --ink: #1b1a17;
+  --ink-2: #232119;
   --paper: #f4efe4;
-  --muted: #6f6a5f;
+  --muted: #8b8477;
+  --line: #34302a;
   --accent: #b23a2f;
+  --good: #4d7c4a;
+  --warn: #b8823a;
+  --bad: #a3453c;
 }
 
 * {
@@ -27,26 +32,165 @@ body {
   min-height: 100dvh;
 }
 
-.app-shell {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
-}
-
-.app-shell h1 {
-  font-size: 28px;
-  letter-spacing: 0.08em;
-  margin: 0 0 8px;
-}
-
-.app-shell p {
-  color: var(--muted);
-  line-height: 1.7;
-  margin: 0;
-}
-
 img {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   max-width: 100%;
+}
+
+.screen {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 18px 56px;
+}
+
+/* ---------- 开局 ---------- */
+
+.birth-head h1 {
+  font-size: 30px;
+  letter-spacing: 0.12em;
+  margin: 0 0 10px;
+}
+
+.birth-head .sub {
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0 0 28px;
+  font-size: 14px;
+}
+
+.year-reel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ink-2);
+  min-height: 132px;
+  justify-content: center;
+}
+
+.year-number {
+  font-variant-numeric: tabular-nums;
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.year-reel.is-rolling .year-number {
+  color: var(--warn);
+  opacity: 0.85;
+}
+
+.year-note {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  min-height: 20px;
+}
+
+.birth-card {
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 18px 16px;
+  background: linear-gradient(180deg, #262319 0%, #1f1d17 100%);
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.card-name {
+  font-size: 22px;
+  letter-spacing: 0.1em;
+}
+
+.card-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 14px 0;
+}
+
+.card-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.card-grid dd {
+  margin: 0;
+  font-size: 14px;
+}
+
+.card-line {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 10px 0 0;
+}
+
+.card-line-muted {
+  color: var(--muted);
+}
+
+/* ---------- 按钮 ---------- */
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.btn,
+.btn-primary {
+  flex: 1;
+  padding: 13px 16px;
+  font-size: 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.btn {
+  background: transparent;
+  color: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+
+.btn:hover,
+.btn-primary:hover {
+  opacity: 0.86;
+}
+
+.btn:active,
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn-primary:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
