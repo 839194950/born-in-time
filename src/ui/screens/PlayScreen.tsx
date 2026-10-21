@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatEffects } from '../../engine/format';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
+import { FOCUS_EFFECT_SCALE } from '../../engine/stats';
 import { STAT_KEYS } from '../../engine/types';
 import { EventModal } from '../components/EventModal';
 import { SceneStage } from '../components/SceneStage';
@@ -88,7 +89,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
                   onClick={() => actions.setFocus(option.id)}
                 >
                   <span className="focus-label">{option.label}</span>
-                  <span className="focus-effects">{formatEffects(option.effects)}</span>
+                  <span className="focus-effects">{formatEffects(option.effects, FOCUS_EFFECT_SCALE)}</span>
                 </button>
               );
             })}

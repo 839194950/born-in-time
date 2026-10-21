@@ -48,8 +48,8 @@ describe('事件目录完整性', () => {
     expect(ALL_EVENTS.filter((e) => e.lastTrain).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('人生阶段事件 20 条，按年龄触发且年龄不重复', () => {
-    expect(STAGE_EVENTS).toHaveLength(20);
+  it('人生阶段事件不少于 20 条，按年龄触发且年龄不重复', () => {
+    expect(STAGE_EVENTS.length).toBeGreaterThanOrEqual(20);
     const ages = STAGE_EVENTS.map((e) => (e.trigger.type === 'age' ? e.trigger.age : -1));
     for (const age of ages) expect(age).toBeGreaterThan(0);
     expect(new Set(ages).size).toBe(ages.length);

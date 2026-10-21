@@ -88,7 +88,7 @@ export const FOCUS_OPTIONS: Readonly<Record<Stage, readonly FocusOption[]>> = {
     {
       id: 'career',
       label: '事业',
-      effects: { wealth: 2, health: -2, family: -1 },
+      effects: { wealth: 2, health: -1, family: -1 },
       axes: { work: 3, future: 1 },
     },
     {
@@ -126,7 +126,7 @@ export const FOCUS_OPTIONS: Readonly<Record<Stage, readonly FocusOption[]>> = {
     {
       id: 'work',
       label: '发挥余热',
-      effects: { wealth: 2, health: -2 },
+      effects: { wealth: 2, health: -1 },
       axes: { work: 3, future: 1 },
     },
     {

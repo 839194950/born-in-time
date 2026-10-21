@@ -1,17 +1,26 @@
 import { ALL_EVENTS } from '../data/events';
 import { pickName } from '../data/names';
 import { rollBirth } from './birth';
-import { findDueBroadcasts, findDueEvents, pickVariantText, type EventCtx } from './catalog';
+import {
+  MAX_DECISIONS_PER_YEAR,
+  findDueBroadcasts,
+  findDueEvents,
+  pickVariantText,
+  type EventCtx,
+} from './catalog';
 import { defaultFocusFor, focusOptionById, focusOptionsFor, stageForAge } from './focus';
 import { formatEffects } from './format';
 import { recordJudgement } from './ledger';
 import { evaluateChoice } from './options';
 import { createRng, type Rng } from './rng';
 import {
+  FOCUS_EFFECT_SCALE,
   STAT_TUNING,
   adaptHappiness,
   applyEffects,
+  applySoftEffects,
   healthDecay,
+  scaleEffects,
   initialStats,
   wealthGain,
 } from './stats';
@@ -210,9 +219,9 @@ export class Game {
     let stats = applyEffects(this.stats, { health: healthDecay(this.age) });
     const option = focusOptionById(this.stage, this.focusId);
     if (option) {
-      const eff: Partial<Stats> = { ...option.effects };
+      const eff: Partial<Stats> = scaleEffects(option.effects, FOCUS_EFFECT_SCALE);
       if (eff.wealth !== undefined) eff.wealth = wealthGain(stats, eff.wealth);
-      stats = applyEffects(stats, eff);
+      stats = applySoftEffects(stats, eff);
       for (const [axis, weight] of Object.entries(option.axes)) {
         this.axes[axis as AxisKey] += weight ?? 0;
       }
@@ -237,9 +246,15 @@ export class Game {
     }
 
     let triggered: PendingEvent | null = null;
-    const due = findDueEvents(ctx, this.catalog, this.firedIds);
-    const next = due[0];
-    if (next) triggered = this.trigger(next);
+    let decisions = 0;
+    for (const ev of findDueEvents(ctx, this.catalog, this.firedIds)) {
+      const pending = this.trigger(ev);
+      if (pending) {
+        decisions += 1;
+        if (!triggered) triggered = pending;
+        if (decisions >= MAX_DECISIONS_PER_YEAR) break;
+      }
+    }
 
     this.touch();
     return { year: this.year, age: this.age, broadcasts, triggered, died: false };

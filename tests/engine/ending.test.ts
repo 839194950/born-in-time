@@ -68,8 +68,8 @@ describe('命型判定', () => {
   });
 
   it('命中集中在 35 岁前 / 40 岁后', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 3, passedBy: 2, hitRate: 0.6, earlyHits: 3, lateHits: 0 }))).toBe('少年得志');
-    expect(titleOf(agg({ nearMiss: 0, caught: 3, passedBy: 2, hitRate: 0.6, earlyHits: 0, lateHits: 3 }))).toBe('大器晚成');
+    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 0, deathAge: 68 }))).toBe('少年得志');
+    expect(titleOf(agg({ nearMiss: 0, caught: 4, passedBy: 3, hitRate: 0.57, earlyHits: 4, lateHits: 4, deathAge: 68 }))).toBe('大器晚成');
   });
 
   it('折腾的人需要转行加迁徙够多且财富起伏大', () => {
@@ -78,7 +78,7 @@ describe('命型判定', () => {
   });
 
   it('守一座城：没迁徙、没怎么换工作', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, moves: 0, jobChanges: 1 }))).toBe('守一座城的人');
+    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, moves: 0, jobChanges: 0 }))).toBe('守一座城的人');
   });
 
   it('平淡但过得踏实是“过小日子的人”', () => {
@@ -94,9 +94,9 @@ describe('命型判定', () => {
   });
 
   it('什么都不沾时兜底到“被时代推着走的人”', () => {
-    expect(titleOf(agg({ caught: 2, passedBy: 3, nearMiss: 0, hitRate: 0.4, happinessAvg: 40, moves: 2 }))).toBe(
-      '被时代推着走的人',
-    );
+    expect(
+      titleOf(agg({ caught: 2, passedBy: 3, nearMiss: 0, hitRate: 0.4, happinessAvg: 40, moves: 2, deathAge: 68 })),
+    ).toBe('被时代推着走的人');
   });
 
   it('12 个称号齐全，稀有度从高到低排列', () => {

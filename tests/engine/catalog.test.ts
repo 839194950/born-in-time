@@ -68,11 +68,11 @@ describe('matchesConditions', () => {
 });
 
 describe('findDueEvents', () => {
-  it('同年多条只返回权重最高的那条', () => {
+  it('同年多条按权重降序全部返回，截断交给主引擎（路过的不占名额）', () => {
     const low = event({ id: 'low', ledgerWeight: 1 });
     const high = event({ id: 'high', ledgerWeight: 5 });
     const due = findDueEvents(ctx(), [low, high], new Set());
-    expect(due.map((e) => e.id)).toEqual(['high']);
+    expect(due.map((e) => e.id)).toEqual(['high', 'low']);
   });
 
   it('触发过的事件不再返回', () => {
@@ -90,7 +90,7 @@ describe('findDueEvents', () => {
     expect(findDueEvents(ctx({ age: 19 }), [e], new Set())).toHaveLength(0);
   });
 
-  it('播报事件不占用当年的抉择名额', () => {
+  it('播报事件不走抉择通道', () => {
     const broadcast = event({ id: 'b', broadcast: true, choices: [], ledgerWeight: 9 });
     const choice = event({ id: 'c', ledgerWeight: 1 });
     expect(findDueEvents(ctx(), [broadcast, choice], new Set()).map((e) => e.id)).toEqual(['c']);

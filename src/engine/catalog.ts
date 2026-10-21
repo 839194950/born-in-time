@@ -44,18 +44,18 @@ export function matchesConditions(ev: EventDef, ctx: EventCtx): boolean {
 export const MAX_DECISIONS_PER_YEAR = 1;
 
 /**
- * 当年该弹的事件。按 ledgerWeight 降序（重的先上），只取一条。
- * 播报型不走这里 —— 它们不占抉择名额。
+ * 当年到期的全部事件，按 ledgerWeight 降序（重的先上）。
+ * 不在这里截断：是否算“占用当年的抉择名额”要看判定结果 ——
+ * 路过的事件只写一行播报，不该把这一年让给一段背景音。
  */
 export function findDueEvents(
   ctx: EventCtx,
   catalog: readonly EventDef[],
   firedIds: ReadonlySet<string>,
 ): EventDef[] {
-  const due = catalog
+  return catalog
     .filter((ev) => !ev.broadcast && !firedIds.has(ev.id) && isDue(ev, ctx))
     .sort((a, b) => b.ledgerWeight - a.ledgerWeight || a.id.localeCompare(b.id));
-  return due.slice(0, MAX_DECISIONS_PER_YEAR);
 }
 
 /** 同年可以播报多条，顺序按权重降序 */
