@@ -372,7 +372,6 @@ export const ERA_EVENTS: EventDef[] = [
     layer: 'era',
     trigger: { type: 'year', year: 2015 },
     windowAge: [30, 40],
-    conditions: { flags: ['stock_account'] },
     title: '股灾',
     body: '这一年的夏天，股市在几周里跌去了大半。营业部的椅子上坐满了不说话的人。',
     choices: [

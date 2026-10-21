@@ -9,7 +9,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'always_one_year_short',
     name: '每次都差一年的人',
     rarity: 12,
-    test: (a) => a.nearMiss >= 4 || (a.nearMiss === 3 && a.caught <= 2),
+    test: (a) => a.nearMiss >= 4 || (a.nearMiss === 3 && a.caught <= 1),
     blurb: (a) => `他${a.nearMiss}次站在门口，门都在他面前一步关上。`,
   },
   {
@@ -51,7 +51,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'late_bloomer',
     name: '大器晚成',
     rarity: 6,
-    test: (a) => a.lateHits >= 5 && a.lateHits >= a.earlyHits,
+    test: (a) => a.lateHits >= 4 && a.lateHits >= a.earlyHits,
     blurb: () => '他的运气来得晚，但到底来了。',
   },
   {
@@ -72,7 +72,7 @@ export const TITLES: readonly TitleDef[] = [
     id: 'small_life',
     name: '过小日子的人',
     rarity: 3,
-    test: (a) => a.hitRate >= 0.3 && a.hitRate <= 0.6 && a.happinessAvg >= 56 && a.familyFinal >= 60,
+    test: (a) => a.hitRate >= 0.25 && a.hitRate <= 0.65 && a.happinessAvg >= 54 && a.familyFinal >= 58,
     blurb: () => '没什么大事发生，日子一天一天过下来了。',
   },
   {
