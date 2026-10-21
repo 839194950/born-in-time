@@ -1,4 +1,5 @@
 import { ALL_EVENTS } from '../data/events';
+import { stillForEvent } from '../data/stills';
 import { pickName } from '../data/names';
 import { rollBirth } from './birth';
 import {
@@ -97,6 +98,8 @@ export interface GameSnapshot {
   counters: GameCounters;
   /** 人生纹理四轴（陪伴–工作 / 根–风 / 平静–浪潮 / 今天–明天）的累计值 */
   axes: Record<AxisKey, number>;
+  /** 最近一次抉择触发的定格画面 id（六个之一），没有则为 null */
+  milestoneId: string | null;
   death: DeathInfo | null;
 }
 
@@ -140,6 +143,7 @@ export class Game {
   private death: DeathInfo | null = null;
   private counters: GameCounters = { jobChanges: 0, moves: 0, startups: 0, choices: 0, defaultChoices: 0 };
   private axes: Record<AxisKey, number> = { ...EMPTY_AXES };
+  private milestoneId: string | null = null;
   private firedIds = new Set<string>();
   private deathBase = 0;
   private started = false;
@@ -302,6 +306,8 @@ export class Game {
       if (adjusted.wealth !== undefined) adjusted.wealth = wealthGain(this.stats, adjusted.wealth);
       this.stats = applyEffects(this.stats, adjusted);
     }
+
+    this.milestoneId = stillForEvent(event.id)?.id ?? null;
 
     const before = new Set(this.flags);
     for (const f of def.clearFlags ?? []) this.flags = this.flags.filter((x) => x !== f);
@@ -505,6 +511,7 @@ export class Game {
       flags: [...this.flags],
       counters: { ...this.counters },
       axes: { ...this.axes },
+      milestoneId: this.milestoneId,
       death: this.death ? { ...this.death } : null,
     };
   }

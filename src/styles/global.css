@@ -835,3 +835,55 @@ img {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* ---------- 定格 ---------- */
+
+.still {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 9, 7, 0.9);
+  animation: still-in 0.45s ease both;
+  cursor: pointer;
+}
+
+.still-inner {
+  text-align: center;
+  padding: 0 28px;
+  animation: still-rise 0.7s ease both;
+}
+
+.still-year {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+
+.still-inner h2 {
+  font-size: 34px;
+  letter-spacing: 0.2em;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+.still-inner p {
+  font-size: 14px;
+  line-height: 2;
+  color: #c9c1b0;
+  margin: 0;
+}
+
+@keyframes still-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes still-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

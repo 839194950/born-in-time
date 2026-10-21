@@ -3,6 +3,7 @@ import { formatEffects } from '../../engine/format';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
 import { FOCUS_EFFECT_SCALE } from '../../engine/stats';
 import { STAT_KEYS } from '../../engine/types';
+import { STILLS } from '../../data/stills';
 import { EventModal } from '../components/EventModal';
 import { SceneStage } from '../components/SceneStage';
 import { StatBar } from '../components/StatBar';
@@ -45,6 +46,18 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
     }, 700);
     return () => window.clearTimeout(id);
   }, [auto, phase, pending]);
+
+  const milestoneId = snapshot.milestoneId;
+  const [shownStill, setShownStill] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!milestoneId) return;
+    setShownStill(milestoneId);
+    const id = window.setTimeout(() => setShownStill(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [milestoneId]);
+
+  const still = shownStill ? STILLS.find((s) => s.id === shownStill) ?? null : null;
 
   const canChooseFocus = phase === 'playing';
 
@@ -127,6 +140,16 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
           onPick={(id) => actions.resolve(id)}
           onContinue={() => actions.resolve(CONTINUE_CHOICE_ID)}
         />
+      )}
+
+      {still && (
+        <div className="still" onClick={() => setShownStill(null)} role="presentation">
+          <div className="still-inner">
+            <span className="still-year">{snapshot.year}</span>
+            <h2>{still.title}</h2>
+            <p>{still.line}</p>
+          </div>
+        </div>
       )}
 
       <Timeline entries={snapshot.timeline} />

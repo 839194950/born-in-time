@@ -168,6 +168,26 @@ describe('主引擎：抉择', () => {
     expect(g.snapshot.pendingEvent).toBeNull();
   });
 
+  it('关键事件会写入定格标记，普通事件不会', () => {
+    const still: EventDef = {
+      id: 'stage_marriage',
+      layer: 'stage',
+      trigger: { type: 'age', age: 5 },
+      windowAge: [5, 5],
+      title: '婚礼',
+      body: '测试',
+      ledgerWeight: 1,
+      source: '测试',
+      choices: [{ id: 'a', label: 'A', outcome: '' }],
+    };
+    const g = new Game({ seed: 2, birth: { ...rollBirth(u(5)), year: 1990, month: 6 }, catalog: [still] });
+    g.start();
+    while (g.snapshot.phase !== 'awaitingChoice') g.tick();
+    expect(g.snapshot.milestoneId).toBeNull();
+    g.resolve('a');
+    expect(g.snapshot.milestoneId).toBe('wedding');
+  });
+
   it('抉择悬而未决时不能继续推进时间', () => {
     const g = new Game({ seed: 2026 });
     g.start();
