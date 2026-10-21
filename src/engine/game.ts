@@ -50,6 +50,14 @@ export interface PendingEvent {
   choices: ResolvedChoice[];
 }
 
+export interface GameCounters {
+  jobChanges: number;
+  moves: number;
+  startups: number;
+  choices: number;
+  defaultChoices: number;
+}
+
 export interface GameSnapshot {
   phase: Phase;
   birth: Birth;
@@ -65,6 +73,7 @@ export interface GameSnapshot {
   snapshots: YearSnapshot[];
   ledger: LedgerEntry[];
   flags: string[];
+  counters: GameCounters;
   death: DeathInfo | null;
 }
 
@@ -102,6 +111,7 @@ export class Game {
   private ledger: LedgerEntry[] = [];
   private flags: string[] = [];
   private death: DeathInfo | null = null;
+  private counters: GameCounters = { jobChanges: 0, moves: 0, startups: 0, choices: 0, defaultChoices: 0 };
   private firedIds = new Set<string>();
   private deathBase = 0;
   private started = false;
@@ -235,9 +245,22 @@ export class Game {
       this.stats = applyEffects(this.stats, adjusted);
     }
 
+    const before = new Set(this.flags);
     for (const f of def.clearFlags ?? []) this.flags = this.flags.filter((x) => x !== f);
     for (const f of setFlags) if (!this.flags.includes(f)) this.flags.push(f);
     this.syncFamily(setFlags);
+
+    this.counters.choices += 1;
+    if (def.default) this.counters.defaultChoices += 1;
+    for (const f of setFlags) {
+      if (before.has(f)) continue;
+      if (f === 'migrant' || f === 'relocated') this.counters.moves += 1;
+      if (f === 'self_employed') {
+        this.counters.startups += 1;
+        this.counters.jobChanges += 1;
+      }
+      if (f === 'stable_job' || f === 'vocational') this.counters.jobChanges += 1;
+    }
 
     this.timeline.push({
       year: this.year,
@@ -413,6 +436,7 @@ export class Game {
       snapshots: this.snapshots.map((s) => ({ ...s, stats: { ...s.stats } })),
       ledger: this.ledger.map((e) => ({ ...e })),
       flags: [...this.flags],
+      counters: { ...this.counters },
       death: this.death ? { ...this.death } : null,
     };
   }
