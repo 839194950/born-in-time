@@ -16,9 +16,13 @@ export function buildAggregate(s: GameSnapshot): EndingAggregate {
   const happinessAvg =
     snaps.length > 0 ? snaps.reduce((a, b) => a + b.happiness, 0) / snaps.length : s.stats.happiness;
 
-  const best = snaps.reduce(
+  // “最幸福的一年”只在 8 岁之后找：婴儿期的幸福是初始值给的，
+  // 不算数——否则几乎每局都会落在 1 岁，这个统计就废了。
+  const grownSnaps = snaps.filter((x) => x.age >= 8);
+  const bestPool = grownSnaps.length > 0 ? grownSnaps : snaps;
+  const best = bestPool.reduce(
     (acc, x) => (x.happiness > acc.happiness ? x : acc),
-    snaps[0] ?? { year: s.birth.year, age: 0, happiness: 0, stats: s.stats },
+    bestPool[0] ?? { year: s.birth.year, age: 0, happiness: 0, stats: s.stats },
   );
 
   return {
@@ -43,6 +47,7 @@ export function buildAggregate(s: GameSnapshot): EndingAggregate {
     defaultChoiceRatio: s.counters.choices === 0 ? 0 : s.counters.defaultChoices / s.counters.choices,
     migrated: s.counters.moves > 0,
     bestYear: best.year,
+    topInterest: s.interests.length > 0 ? { label: s.interests[0]!.label, level: s.interests[0]!.level } : null,
   };
 }
 

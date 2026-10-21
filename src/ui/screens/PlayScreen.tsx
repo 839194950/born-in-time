@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatEffects } from '../../engine/format';
+import { ROLE_LABEL } from '../../data/labels';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
-import { FOCUS_EFFECT_SCALE } from '../../engine/stats';
 import { STAT_KEYS } from '../../engine/types';
 import { STILLS } from '../../data/stills';
 import { EventModal } from '../components/EventModal';
@@ -81,6 +81,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
         health={snapshot.stats.health}
         happiness={snapshot.stats.happiness}
         flags={snapshot.flags}
+        family={snapshot.family}
       />
 
       <section className="stats" aria-label="五维数值">
@@ -88,6 +89,42 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
           <StatBar key={key} stat={key} value={snapshot.stats[key]} />
         ))}
       </section>
+
+      <p className="career-line">{snapshot.careerLine}</p>
+
+      {snapshot.family.length > 0 && (
+        <section className="family-panel" aria-label="家人">
+          <h3>家人</h3>
+          <ul className="family-list">
+            {snapshot.family.map((m) => {
+              const dead = m.deathYear !== undefined && m.deathYear <= snapshot.year;
+              const age = (dead ? m.deathYear! : snapshot.year) - m.birthYear;
+              return (
+                <li key={`${m.role}-${m.name}`} className={dead ? 'is-dead' : ''}>
+                  <span className="family-role">{ROLE_LABEL[m.role] ?? m.role}</span>
+                  <span className="family-name">{m.name}</span>
+                  {m.job && <span className="family-job">{m.job}</span>}
+                  <span className="family-age">{dead ? `${age} 岁离世` : `${age} 岁`}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {snapshot.interests.length > 0 && (
+        <section className="interest-panel" aria-label="兴趣">
+          <h3>花时间最多的事</h3>
+          <ul className="interest-list">
+            {snapshot.interests.slice(0, 3).map((i) => (
+              <li key={i.id}>
+                <span className="interest-name">{i.label}</span>
+                <span className="interest-lv">{`Lv.${i.level}`}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {snapshot.focusOptions.length > 0 && (
         <section className="focus" aria-label="今年的重心">
@@ -104,7 +141,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
                   onClick={() => actions.setFocus(option.id)}
                 >
                   <span className="focus-label">{option.label}</span>
-                  <span className="focus-effects">{formatEffects(option.effects, FOCUS_EFFECT_SCALE)}</span>
+                  <span className="focus-effects">{formatEffects(snapshot.focusDisplay[option.id] ?? option.effects)}</span>
                 </button>
               );
             })}

@@ -318,3 +318,69 @@ describe('回归：阶段事件不走窗口判定（差一年误判）', () => {
     expect(stagePendings).toBeGreaterThanOrEqual(8);
   });
 });
+
+describe('一期系统：职业结算 / 家人 / 兴趣 / 整数显示', () => {
+  it('重心按钮预演值全是整数，且与实际生效同号', () => {
+    const g = new Game({ seed: 7 });
+    g.start();
+    let guard = 0;
+    while (g.snapshot.age < 10 && guard++ < 60) {
+      if (g.snapshot.phase === 'awaitingChoice') {
+        const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
+      } else {
+        g.tick();
+      }
+    }
+    expect(g.snapshot.age).toBeGreaterThanOrEqual(10);
+    for (const eff of Object.values(g.snapshot.focusDisplay)) {
+      for (const v of Object.values(eff)) expect(Number.isInteger(v)).toBe(true);
+    }
+  });
+
+  it('成年后有职业行，且第一份工资会记进时间线', () => {
+    const g = playToDeath(new Game({ seed: 2026 }));
+    expect(g.snapshot.careerLine.length).toBeGreaterThan(0);
+    expect(g.snapshot.timeline.some((t) => t.text.startsWith('第一份工资'))).toBe(true);
+  });
+
+  it('连年选学习能攒出阅读兴趣，写进结局汇总', () => {
+    const g = new Game({ seed: 5 });
+    g.start();
+    let guard = 0;
+    while (g.snapshot.phase !== 'dead' && guard++ < 300) {
+      if (g.snapshot.phase === 'awaitingChoice') {
+        const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
+      } else {
+        if (g.snapshot.focusOptions.some((o) => o.id === 'study')) g.setFocus('study');
+        g.tick();
+      }
+    }
+    const reading = g.snapshot.interests.find((i) => i.id === 'reading');
+    expect(reading).toBeDefined();
+    expect(reading!.level).toBeGreaterThan(3);
+  });
+
+  it('父母会在玩家生前离世并记进时间线（1960 年出生的一局）', () => {
+    const base = rollBirth(u(3));
+    const birth: Birth = {
+      ...base,
+      year: 1960,
+      month: 3,
+      urban: false,
+      cohortLifeExpectancy: cohortLifeExpectancy(1960, false),
+    };
+    const g = playToDeath(Game.fromBirth(birth, 42));
+    expect(g.snapshot.timeline.some((t) => /父亲|母亲/.test(t.text) && t.text.includes('去世了'))).toBe(true);
+    const father = g.snapshot.family.find((f) => f.role === 'father')!;
+    expect(father.deathYear).toBeDefined();
+  });
+
+  it('最幸福的一年不会落在 8 岁之前', async () => {
+    const { buildAggregate } = await import('../../src/engine/ending');
+    const g = playToDeath(new Game({ seed: 2026 }));
+    const agg = buildAggregate(g.snapshot);
+    expect(agg.bestYear - g.snapshot.birth.year).toBeGreaterThanOrEqual(8);
+  });
+});

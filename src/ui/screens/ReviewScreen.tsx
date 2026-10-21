@@ -118,6 +118,20 @@ export function ReviewScreen({
         )}
       </section>
 
+      {snapshot.interests.length > 0 && (
+        <section className="review-block">
+          <h2>这一生花时间最多的事</h2>
+          <ul className="interest-list">
+            {snapshot.interests.map((i) => (
+              <li key={i.id}>
+                <span className="interest-name">{i.label}</span>
+                <span className="interest-lv">{`Lv.${i.level}`}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="review-block">
         <h2>留一句话</h2>
         <textarea

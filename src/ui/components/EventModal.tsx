@@ -8,6 +8,17 @@ const VERDICT_CLASS: Record<string, string> = {
   passedBy: 'badge-passed',
 };
 
+/** 差一年的说法按“差多少、差在哪边”分级，不再一句话用到底 */
+export function nearMissLine(judgement: PendingEvent['judgement'], windowAge: [number, number]): string {
+  const gap = judgement.gapMonths;
+  if (gap <= 14) return `你晚了 ${gapText(gap)}。门里的事，这一回和你没关系。`;
+  const start = windowAge[0] * 12;
+  if (judgement.ageMonths < start) {
+    return `这件事来的时候，你才 ${judgement.age} 岁，还差 ${gapText(gap)} 才够得着。等你够着了，它已经过去了。`;
+  }
+  return `你晚了 ${gapText(gap)}。等你走到跟前，这扇门已经关上了。`;
+}
+
 export function EventModal({
   pending,
   onPick,
@@ -31,9 +42,7 @@ export function EventModal({
         <p className="modal-body">{text}</p>
 
         {judgement.verdict === 'nearMiss' && (
-          <p className="modal-near">
-            {`你晚了 ${gapText(judgement.gapMonths)}。门里的事，这一回和你没关系。`}
-          </p>
+          <p className="modal-near">{nearMissLine(judgement, event.windowAge)}</p>
         )}
 
         {notice && <p className="modal-notice">{notice}</p>}

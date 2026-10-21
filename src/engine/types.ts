@@ -167,6 +167,8 @@ export interface FamilyMember {
   name: string;
   birthYear: number;
   deathYear?: number;
+  /** 配偶的工作（展示用，家人栏与场景标注） */
+  job?: string;
 }
 
 export interface DeathInfo {
@@ -209,6 +211,8 @@ export interface EndingAggregate {
   defaultChoiceRatio: number;
   migrated: boolean;
   bestYear: number;
+  /** 一生积累最深的兴趣（没有则为 null） */
+  topInterest: { label: string; level: number } | null;
 }
 
 export interface TitleDef {

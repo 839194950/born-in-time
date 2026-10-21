@@ -1,6 +1,7 @@
 import { ALL_EVENTS } from '../data/events';
 import { stillForEvent } from '../data/stills';
 import { pickName } from '../data/names';
+import { cohortLifeExpectancy } from '../data/demography';
 import { rollBirth } from './birth';
 import {
   MAX_DECISIONS_PER_YEAR,
@@ -25,7 +26,10 @@ import {
   initialStats,
   wealthGain,
 } from './stats';
+import { annualWealthDrift, careerLine, deriveCareer } from './career';
+import { INTEREST_BY_FOCUS, INTEREST_XP_PER_YEAR, summarizeInterests, type InterestState } from './interests';
 import { judgeWindow } from './window';
+import { STAT_KEYS } from './types';
 import type {
   AxisKey,
   Birth,
@@ -102,6 +106,13 @@ export interface GameSnapshot {
   axes: Record<AxisKey, number>;
   /** 最近一次抉择触发的定格画面 id（六个之一），没有则为 null */
   milestoneId: string | null;
+  /** 职业状态 id 与展示行（月薪体感锚点），由 flags+年龄推导 */
+  careerId: string;
+  careerLine: string;
+  /** 兴趣等级（按经验降序，只含已积累的） */
+  interests: InterestState[];
+  /** 今年各重心选项将实际生效的整数效果（余数结转后的预演值，与按钮展示一致） */
+  focusDisplay: Record<string, Partial<Stats>>;
   death: DeathInfo | null;
 }
 
@@ -154,6 +165,9 @@ export class Game {
   private axes: Record<AxisKey, number> = { ...EMPTY_AXES };
   private milestoneId: string | null = null;
   private firedIds = new Set<string>();
+  private focusResidue: Partial<Stats> = {};
+  private interestsXp: Record<string, number> = {};
+  private firstPayNoted = false;
   private deathBase = 0;
   private started = false;
 
@@ -232,14 +246,68 @@ export class Game {
     let stats = applyEffects(this.stats, { health: healthDecay(this.age) });
     const option = focusOptionById(this.stage, this.focusId);
     if (option) {
-      const eff: Partial<Stats> = scaleEffects(option.effects, FOCUS_EFFECT_SCALE);
-      if (eff.wealth !== undefined) eff.wealth = wealthGain(stats, eff.wealth);
+      // 整数化：0.4 折算的小数不直接展示也不直接生效，按年结转余数——
+      // 今年四舍五入省下的部分攒到明年，长期总量仍等于 0.4 倍，按钮上
+      // 看到的整数就是实际生效的整数（见 focusDisplay 的预演）。
+      const raw = scaleEffects(option.effects, FOCUS_EFFECT_SCALE);
+      let eff: Partial<Stats> = {};
+      for (const key of STAT_KEYS) {
+        const value = raw[key];
+        if (value === undefined) continue;
+        const total = value + (this.focusResidue[key] ?? 0);
+        const applied = Math.round(total);
+        this.focusResidue[key] = total - applied;
+        if (applied !== 0) eff[key] = applied;
+      }
+      if (eff.wealth !== undefined) eff = { ...eff, wealth: wealthGain(stats, eff.wealth) };
       stats = applySoftEffects(stats, eff);
       for (const [axis, weight] of Object.entries(option.axes)) {
         this.axes[axis as AxisKey] += weight ?? 0;
       }
+      const interest = INTEREST_BY_FOCUS[option.id];
+      if (interest) {
+        this.interestsXp[interest.id] = (this.interestsXp[interest.id] ?? 0) + INTEREST_XP_PER_YEAR;
+      }
     }
     stats = adaptHappiness(stats);
+
+    // 职业年度结算：财富百分位每年有根基地漂移，大起大落仍归事件管
+    const career = deriveCareer(this.flags, this.age, this.birth.urban);
+    if (career.working || career.retired) {
+      const drift = annualWealthDrift(career, () => this.rng.next());
+      if (drift !== 0) stats = applyEffects(stats, { wealth: drift });
+      if (career.working && !this.firstPayNoted && this.age >= 18) {
+        this.firstPayNoted = true;
+        this.timeline.push({
+          year: this.year, age: this.age, kind: 'milestone',
+          text: `第一份工资：开始做${career.label}，工资发下来那天，把钱数了两遍。`,
+        });
+      } else if (career.working && this.age >= 26 && this.age <= 50 && this.rng.chance(0.07)) {
+        this.timeline.push({
+          year: this.year, age: this.age, kind: 'milestone',
+          text: '工资涨了一档：不多，但晚饭加了个菜。',
+        });
+      }
+    }
+
+    // 家人离世（父母/配偶的 deathYear 在家人建立时就抽定，这里只做兑现）
+    for (const member of this.family) {
+      if (member.deathYear !== this.year) continue;
+      if (member.role === 'father' || member.role === 'mother') {
+        const rel = member.role === 'father' ? '父亲' : '母亲';
+        this.timeline.push({
+          year: this.year, age: this.age, kind: 'milestone',
+          text: `${rel} ${member.name} 去世了，享年 ${this.year - member.birthYear} 岁。`,
+        });
+        stats = applyEffects(stats, { family: -5, happiness: -4 });
+      } else if (member.role === 'spouse') {
+        this.timeline.push({
+          year: this.year, age: this.age, kind: 'milestone',
+          text: `配偶 ${member.name} 先走了一步，享年 ${this.year - member.birthYear} 岁。`,
+        });
+        stats = applyEffects(stats, { family: -8, happiness: -6 });
+      }
+    }
     this.stats = stats;
     this.snapshots.push({ year: this.year, age: this.age, happiness: stats.happiness, stats: { ...stats } });
 
@@ -467,16 +535,20 @@ export class Game {
   private buildFamily(): FamilyMember[] {
     const fatherAge = this.rng.int(24, 32);
     const motherAge = fatherAge - this.rng.int(0, 4);
+    const parentDeath = (birthYear: number): number =>
+      Math.round(birthYear + cohortLifeExpectancy(birthYear, this.birth.urban) + this.rng.int(-5, 9));
     const members: FamilyMember[] = [
       {
         role: 'father',
         name: pickName(this.rng, 'male', this.birth.year - fatherAge),
         birthYear: this.birth.year - fatherAge,
+        deathYear: parentDeath(this.birth.year - fatherAge),
       },
       {
         role: 'mother',
         name: pickName(this.rng, 'female', this.birth.year - motherAge),
         birthYear: this.birth.year - motherAge,
+        deathYear: parentDeath(this.birth.year - motherAge),
       },
     ];
     for (let i = 0; i < this.birth.siblings; i++) {
@@ -486,6 +558,7 @@ export class Game {
         role: 'sibling',
         name: pickName(this.rng, gender, this.birth.year - gap),
         birthYear: this.birth.year - gap,
+        deathYear: parentDeath(this.birth.year - gap) + this.rng.int(0, 10),
       });
     }
     return members;
@@ -495,10 +568,14 @@ export class Game {
     if (setFlags.includes('married') && !this.family.some((f) => f.role === 'spouse')) {
       const gender = this.birth.gender === 'male' ? 'female' : 'male';
       const age = this.rng.int(22, 30);
+      const spouseBirthYear = this.year - age;
+      const jobPool = this.birth.urban ? ['教师', '职员', '工人', '个体户', '护士'] : ['农民', '教师', '务工', '个体户'];
       this.family.push({
         role: 'spouse',
-        name: pickName(this.rng, gender, this.year - age),
-        birthYear: this.year - age,
+        name: pickName(this.rng, gender, spouseBirthYear),
+        birthYear: spouseBirthYear,
+        deathYear: Math.round(spouseBirthYear + cohortLifeExpectancy(spouseBirthYear, this.birth.urban) + this.rng.int(-4, 9)),
+        job: jobPool[this.rng.int(0, jobPool.length - 1)],
       });
     }
     if (setFlags.includes('child_born') && !this.family.some((f) => f.role === 'child')) {
@@ -531,7 +608,28 @@ export class Game {
       axes: { ...this.axes },
       milestoneId: this.milestoneId,
       death: this.death ? { ...this.death } : null,
+      careerId: deriveCareer(this.flags, this.age, this.birth.urban).id,
+      careerLine: careerLine(deriveCareer(this.flags, this.age, this.birth.urban), this.year, this.age),
+      interests: summarizeInterests(this.interestsXp),
+      focusDisplay: this.peekFocusDisplay(),
     };
+  }
+
+  /** 预演今年每个重心选项将生效的整数效果（与 tick 的结转算法一致，不改状态） */
+  private peekFocusDisplay(): Record<string, Partial<Stats>> {
+    const out: Record<string, Partial<Stats>> = {};
+    for (const option of focusOptionsFor(this.stage)) {
+      const raw = scaleEffects(option.effects, FOCUS_EFFECT_SCALE);
+      const eff: Partial<Stats> = {};
+      for (const key of STAT_KEYS) {
+        const value = raw[key];
+        if (value === undefined) continue;
+        const applied = Math.round(value + (this.focusResidue[key] ?? 0));
+        if (applied !== 0) eff[key] = applied;
+      }
+      out[option.id] = eff;
+    }
+    return out;
   }
 
   private touch(): void {

@@ -887,3 +887,16 @@ img {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.career-line { text-align: center; color: #a8c0d8; font-size: 13px; margin: 6px 0 0; }
+.family-panel, .interest-panel { margin: 12px auto 0; max-width: 560px; padding: 0 16px; }
+.family-panel h3, .interest-panel h3 { font-size: 13px; color: #8a97a5; margin: 0 0 6px; font-weight: 600; }
+.family-list, .interest-list { list-style: none; margin: 0; padding: 0; }
+.family-list li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,.08); font-size: 14px; }
+.family-list li.is-dead { opacity: .55; }
+.family-role { color: #8a97a5; min-width: 4em; }
+.family-name { font-weight: 600; }
+.family-job { color: #a8c0d8; font-size: 12px; }
+.family-age { margin-left: auto; color: #8a97a5; font-size: 12px; }
+.interest-list li { display: inline-flex; gap: 6px; margin-right: 16px; font-size: 14px; padding: 3px 0; }
+.interest-lv { color: #d9c07a; font-variant-numeric: tabular-nums; }

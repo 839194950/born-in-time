@@ -26,6 +26,7 @@ const agg = (over: Partial<EndingAggregate> = {}): EndingAggregate => ({
   defaultChoiceRatio: 0.3,
   migrated: true,
   bestYear: 1999,
+  topInterest: null,
   ...over,
 });
 

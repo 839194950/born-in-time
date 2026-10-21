@@ -9,6 +9,7 @@ export interface SceneSpec {
   urban: boolean;
   scene: SceneId;
   sprite: SpriteSpec;
+  companions?: { sprite: SpriteSpec; x: number }[];
 }
 
 type Rect = (x: number, y: number, w: number, h: number, color: string) => void;
@@ -164,6 +165,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void 
   const scale = 3;
   const x = spec.scene === 'classroom' ? 300 : 430;
   const feet = mode === 'outdoor' ? 470 : 466;
+  for (const c of spec.companions ?? []) {
+    ctx.save();
+    ctx.translate(c.x, feet - 64 * scale);
+    ctx.scale(scale, scale);
+    drawCharacter(ctx, c.sprite);
+    ctx.restore();
+  }
   ctx.save();
   ctx.translate(x, feet - 64 * scale);
   ctx.scale(scale, scale);

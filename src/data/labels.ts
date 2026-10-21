@@ -28,3 +28,11 @@ export const GENDER_LABEL: Record<Gender, string> = {
   male: '男',
   female: '女',
 };
+
+export const ROLE_LABEL: Record<string, string> = {
+  father: '父亲',
+  mother: '母亲',
+  sibling: '兄弟姐妹',
+  spouse: '配偶',
+  child: '孩子',
+};
