@@ -9,6 +9,7 @@ export interface GameStore {
   getGame(): Game | null;
   startGame(birth: Birth, seed?: number): void;
   resume(): boolean;
+  reset(): void;
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
@@ -68,6 +69,12 @@ export function createGameStore(): GameStore {
       emit();
       return true;
     },
+    reset() {
+      detach?.();
+      detach = null;
+      game = null;
+      emit();
+    },
     setFocus(id) {
       game?.setFocus(id);
     },
@@ -88,6 +95,7 @@ export const store = createGameStore();
 export interface GameActions {
   startGame(birth: Birth, seed?: number): void;
   resume(): boolean;
+  reset(): void;
   setFocus(id: string): void;
   tick(): void;
   resolve(id: string): void;
@@ -101,6 +109,7 @@ export function useGame(): { snapshot: GameSnapshot | null; actions: GameActions
     actions: {
       startGame: store.startGame,
       resume: store.resume,
+      reset: store.reset,
       setFocus: store.setFocus,
       tick: store.tick,
       resolve: store.resolve,

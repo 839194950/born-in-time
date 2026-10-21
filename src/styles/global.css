@@ -642,3 +642,97 @@ img {
   color: var(--paper);
   border-color: var(--muted);
 }
+
+/* ---------- 死亡与结局 ---------- */
+
+.death-screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 32px 24px 64px;
+  background: #0d0c0a;
+  text-align: center;
+}
+
+.death-lines {
+  display: grid;
+  gap: 18px;
+}
+
+.death-line {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.9;
+  color: #ded6c4;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  animation: fade-up 1.1s ease forwards;
+}
+
+.death-line:first-child {
+  font-size: 26px;
+  letter-spacing: 0.16em;
+  color: #f4efe4;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.death-next {
+  margin-top: 10px;
+}
+
+.btn-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.btn-link:hover {
+  color: var(--paper);
+}
+
+.ending-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+}
+
+.ending-canvas {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 9 / 16;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1b1a17;
+}
+
+.ending-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 18px;
+}
+
+.ending-actions .btn,
+.ending-actions .btn-primary {
+  flex: 1;
+  font-size: 14px;
+  padding: 12px 10px;
+}
