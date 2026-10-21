@@ -63,9 +63,11 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
       <SceneStage
         year={snapshot.year}
         age={snapshot.age}
+        gender={snapshot.birth.gender}
         urban={snapshot.birth.urban}
         health={snapshot.stats.health}
         happiness={snapshot.stats.happiness}
+        flags={snapshot.flags}
       />
 
       <section className="stats" aria-label="五维数值">
