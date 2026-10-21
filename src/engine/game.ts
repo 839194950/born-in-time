@@ -421,9 +421,13 @@ export class Game {
 
     const text = pickVariantText(event, this.birth.urban);
 
-    // 条件专属事件是“你身上确实发生过的事”，不存在路过一说；
-    // 窗口只用来在核验表里标注建议年龄。
-    const verdict = event.layer === 'conditional' ? 'caught' : judgement.verdict;
+    // 窗口判定只适用于时代事件（era）：它讲的就是“大事发生那年你几岁”。
+    // 人生阶段事件（stage）是到了年龄必然发生在你身上的事——上学、中考、
+    // 结婚、体检；条件专属（conditional）同理。两者的 windowAge 只是建议
+    // 年龄标注，若拿去按月判定，出生月份在下半年的人会系统性地“差几个月”，
+    // 每个阶段事件都被判成差一年、没有选项，一辈子只能点“继续过日子”。
+    // （回归背景：1968 年 9 月出生的一局，24 个事件里 14 个被误判差一年。）
+    const verdict = event.layer === 'era' ? judgement.verdict : 'caught';
 
     // 路过：只留一行背景播报，不打断玩家的时间
     if (verdict === 'passedBy') {

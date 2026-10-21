@@ -253,3 +253,68 @@ describe('主引擎：订阅', () => {
     unsub();
   });
 });
+
+describe('回归：阶段事件不走窗口判定（差一年误判）', () => {
+  // 背景：阶段事件的 windowAge 写成单一年龄 [15,15]，事件时点又取年中 6 月，
+  // 出生月份在 7 月以后的人每个阶段事件都会“差 1–6 个月”被判 nearMiss，
+  // 只剩一个“继续过日子”按钮。1968 年 9 月出生的一局里 24 个事件误判了 14 个。
+  const stageEvent: EventDef = {
+    id: 'test_stage_exam',
+    layer: 'stage',
+    trigger: { type: 'age', age: 15 },
+    windowAge: [15, 15],
+    title: '中考',
+    body: '测试正文',
+    ledgerWeight: 1,
+    source: '测试',
+    choices: [
+      { id: 'a', label: '读高中', outcome: '' },
+      { id: 'b', label: '去打工', outcome: '' },
+    ],
+  };
+
+  it.each([1, 3, 6, 7, 9, 12])('出生月份为 %i 月时，阶段事件照常给选项', (month) => {
+    const g = new Game({
+      seed: 2,
+      birth: { ...rollBirth(u(5)), year: 1990, month },
+      catalog: [stageEvent],
+    });
+    g.start();
+    while (g.snapshot.phase !== 'awaitingChoice') g.tick();
+    const pending = g.snapshot.pendingEvent!;
+    expect(pending.event.id).toBe('test_stage_exam');
+    expect(pending.judgement.verdict).toBe('caught');
+    expect(pending.choices.length).toBeGreaterThan(0);
+  });
+
+  it('全量事件表跑一局：阶段事件永远有选项，下半年出生也不例外', () => {
+    const base = rollBirth(u(11));
+    const birth: Birth = {
+      ...base,
+      year: 1968,
+      month: 9,
+      urban: false,
+      cohortLifeExpectancy: cohortLifeExpectancy(1968, false),
+    };
+    const g = Game.fromBirth(birth, 42);
+    g.start();
+    let stagePendings = 0;
+    let guard = 0;
+    while (g.snapshot.phase !== 'dead' && guard++ < 300) {
+      if (g.snapshot.phase === 'awaitingChoice') {
+        const pending = g.snapshot.pendingEvent!;
+        if (pending.event.layer === 'stage') {
+          stagePendings += 1;
+          expect(pending.judgement.verdict).toBe('caught');
+          expect(pending.choices.length).toBeGreaterThan(0);
+        }
+        const pick = pending.choices.find((c) => c.state === 'available');
+        g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
+      } else {
+        g.tick();
+      }
+    }
+    expect(g.snapshot.phase).toBe('dead');
+    expect(stagePendings).toBeGreaterThanOrEqual(8);
+  });
+});
