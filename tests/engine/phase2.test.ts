@@ -46,7 +46,9 @@ describe('二期系统', () => {
     playAll(new Game({ seed: 2026 }), (id, kind) => {
       if (kind === 'daily') seen.push(id);
     });
-    expect(seen.length).toBeGreaterThanOrEqual(8);
+    // v2：日常改成「空窗补偿」，一生上限 4 件（原先占掉 42% 的抉择量）
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(seen.length).toBeLessThanOrEqual(4);
     const once = seen.filter((id) => !DAILY_EVENTS.find((d) => d.id === id)?.repeatable);
     expect(new Set(once).size).toBe(once.length);
   });
@@ -56,8 +58,8 @@ describe('二期系统', () => {
     playAll(new Game({ seed: 7 }), (id, kind) => {
       if (kind === 'reflection') ages.push(Number(id.replace('reflection_', '')));
     });
-    expect(ages).toEqual(expect.arrayContaining([18, 30, 40, 50, 60]));
-    expect(REFLECTIONS).toHaveLength(5);
+    expect(ages).toEqual(expect.arrayContaining([18, 40, 60]));
+    expect(REFLECTIONS).toHaveLength(3);
   });
 
   it('反思弹窗带年代数据：正文里有工资或城镇化率数字', () => {

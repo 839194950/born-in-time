@@ -84,15 +84,18 @@ describe('adaptHappiness（适应回落）', () => {
 
   it('消费砸出来的幸福数年后滑回基准线', () => {
     let stats: Stats = { health: 50, family: 50, wealth: 50, ability: 50, happiness: 95 };
-    for (let i = 0; i < 20; i++) stats = adaptHappiness(stats);
+    // 回落率 0.18 时半衰期约 3.5 年，30 年足够收敛（约 8.5 个半衰期）
+    for (let i = 0; i < 30; i++) stats = adaptHappiness(stats);
     expect(Math.abs(stats.happiness - 50)).toBeLessThan(0.5);
   });
 });
 
 describe('wealthGain（越高越难涨）', () => {
   it('低位吃满，高位打折', () => {
+    // 阻尼从 45 百分位开始（v2 口径）：45 以下吃满，50 已开始打折
     expect(wealthGain({ ...base, wealth: 10 }, 5)).toBe(5);
-    expect(wealthGain({ ...base, wealth: 50 }, 5)).toBe(5);
+    expect(wealthGain({ ...base, wealth: 40 }, 5)).toBe(5);
+    expect(wealthGain({ ...base, wealth: 50 }, 5)).toBeLessThan(5);
     expect(wealthGain({ ...base, wealth: 90 }, 5)).toBeLessThan(2);
   });
 

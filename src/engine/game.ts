@@ -17,13 +17,16 @@ import { defaultFocusFor, focusOptionById, focusOptionsFor, stageForAge } from '
 import { formatEffects } from './format';
 import { recordJudgement } from './ledger';
 import { evaluateChoice } from './options';
-import { createRng, type Rng } from './rng';
+import { createRng, rngFor, type Rng } from './rng';
 import {
   FOCUS_EFFECT_SCALE,
   STAT_TUNING,
+  abilityDecay,
   adaptHappiness,
   applyEffects,
   applySoftEffects,
+  familyDecay,
+  healthBand,
   healthDecay,
   scaleEffects,
   initialStats,
@@ -145,6 +148,8 @@ export interface GameOptions {
 }
 
 const MAX_AGE = 120;
+/** 一生最多插几件日常小事：小事是调味，不该占掉 42% 的抉择量 */
+const MAX_DAILY_PER_LIFE = 4;
 
 /** 差一年时没有选项，只有一个“继续”把弹窗关掉 */
 export const CONTINUE_CHOICE_ID = '__continue__';
@@ -191,6 +196,11 @@ export class Game {
   private choiceLogInternal: { eventId: string; choiceId: string }[] = [];
   private deathBase = 0;
   private started = false;
+  /** 距上一次弹窗过了几年（日常小事只在长期空窗时补一件） */
+  private yearsSinceModal = 0;
+  private dailyFired = 0;
+  /** 主动养生/锻炼、净健康为正的年数——决定长寿尾 */
+  private healthyYears = 0;
 
   private version = 0;
   private cache: GameSnapshot | null = null;
@@ -276,7 +286,13 @@ export class Game {
       this.focusId = defaultFocusFor(this.stage);
     }
 
-    let stats = applyEffects(this.stats, { health: healthDecay(this.age) });
+    // 年度子流：同一年内的所有随机都从这里取，和日常/事件/选择的流互不干扰
+    const yearRng = rngFor(this.seedValue, 'tick', this.year);
+    let stats = applyEffects(this.stats, {
+      health: healthDecay(this.age),
+      ability: abilityDecay(this.age),
+      family: familyDecay(this.age),
+    });
     const option = focusOptionById(this.stage, this.focusId);
     if (option) {
       // 整数化：0.4 折算的小数不直接展示也不直接生效，按年结转余数——
@@ -293,6 +309,13 @@ export class Game {
         if (applied !== 0) eff[key] = applied;
       }
       if (eff.wealth !== undefined) eff = { ...eff, wealth: wealthGain(stats, eff.wealth) };
+      // 健康回血只在"这个岁数还养得回来"的范围内加成，且必须由玩家主动选
+      if (eff.health !== undefined && eff.health > 0 && stats.health < healthBand(this.age)) {
+        eff = { ...eff, health: eff.health * STAT_TUNING.healthRecoverBoost };
+      }
+      // 按选项声明的健康意图统计（2 = 运动/休息/留给自己的那档），
+      // 不能看折算后的整数：2×0.4=0.8 会四舍五入成 1，永远够不到 2。
+      if ((option.effects.health ?? 0) >= 2) this.healthyYears += 1;
       stats = applySoftEffects(stats, eff);
       for (const [axis, weight] of Object.entries(option.axes)) {
         this.axes[axis as AxisKey] += weight ?? 0;
@@ -307,7 +330,7 @@ export class Game {
     // 职业年度结算：财富百分位每年有根基地漂移，大起大落仍归事件管
     const career = deriveCareer(this.flags, this.age, this.birth.urban);
     if (career.working || career.retired) {
-      const drift = annualWealthDrift(career, () => this.rng.next());
+      const drift = annualWealthDrift(career, () => yearRng.next());
       if (drift !== 0) stats = applyEffects(stats, { wealth: drift });
       if (career.working && !this.firstPayNoted && this.age >= 18) {
         this.firstPayNoted = true;
@@ -315,7 +338,7 @@ export class Game {
           year: this.year, age: this.age, kind: 'milestone',
           text: `第一份工资：开始做${career.label}，工资发下来那天，把钱数了两遍。`,
         });
-      } else if (career.working && this.age >= 26 && this.age <= 50 && this.rng.chance(0.07)) {
+      } else if (career.working && this.age >= 26 && this.age <= 50 && yearRng.chance(0.07)) {
         this.timeline.push({
           year: this.year, age: this.age, kind: 'milestone',
           text: '工资涨了一档：不多，但晚饭加了个菜。',
@@ -342,7 +365,7 @@ export class Game {
       }
     }
     // 持续状态结算：慢病拖健康、花药钱；房贷满 20 年还清
-    if (!this.flags.includes('chronic_illness') && this.age >= 45 && stats.health < 42 && this.rng.chance(0.08)) {
+    if (!this.flags.includes('chronic_illness') && this.age >= 45 && stats.health < 42 && yearRng.chance(0.08)) {
       this.flags.push('chronic_illness');
       this.timeline.push({
         year: this.year, age: this.age, kind: 'milestone',
@@ -351,7 +374,7 @@ export class Game {
       stats = applyEffects(stats, { health: -3, happiness: -2 });
     } else if (this.flags.includes('chronic_illness')) {
       stats = applyEffects(stats, { health: -0.3 });
-      if (this.rng.chance(0.4)) stats = applyEffects(stats, { wealth: -1 });
+      if (yearRng.chance(0.4)) stats = applyEffects(stats, { wealth: -1 });
     }
     const mortgageYear = this.flagYears.get('mortgage');
     if (
@@ -388,6 +411,17 @@ export class Game {
     let triggered: PendingEvent | null = null;
     let decisions = 0;
     for (const ev of findDueEvents(ctx, this.catalog, this.firedIds)) {
+      // priority < 3：不打断玩家，只留一行播报。把"必须决策"和"一句话带过"分开。
+      if ((ev.priority ?? 3) < 3) {
+        this.firedIds.add(ev.id);
+        this.timeline.push({
+          year: this.year,
+          age: this.age,
+          kind: 'broadcast',
+          text: `${ev.title}：${pickVariantText(ev, this.birth.urban)}`,
+        });
+        continue;
+      }
       const pending = this.trigger(ev);
       if (pending) {
         decisions += 1;
@@ -403,17 +437,26 @@ export class Game {
         this.reflectionsFired.add(this.age);
         const def = this.reflectionEventDef(reflection);
         if (!triggered) triggered = this.trigger(def, 'reflection');
-        else this.pendingQueue.push({ def, kind: 'reflection' });
+        else if (this.pendingQueue.length === 0) this.pendingQueue.push({ def, kind: 'reflection' });
       }
     }
 
-    // 日常小事：空白年大概率有一件；有大事的年份也可能顺手碰上一件。
-    // 排队最多一件，免得弹窗连成串。
-    if (this.age >= 5 && this.rng.chance(triggered ? 0.3 : 0.5)) {
-      const def = this.pickDaily();
+    // 日常小事：改成"空窗补偿"——连续 ≥3 年没有弹窗才补一件，一生上限 4 件。
+    // v1 是"空白年 50% 一件"，结果日常占了 42% 的抉择量，招牌的时代窗口只剩 16%。
+    if (triggered) this.yearsSinceModal = 0;
+    else this.yearsSinceModal += 1;
+
+    if (
+      this.age >= 6 &&
+      !triggered &&
+      this.dailyFired < MAX_DAILY_PER_LIFE &&
+      this.yearsSinceModal >= 3
+    ) {
+      const def = this.pickDaily(rngFor(this.seedValue, 'daily', this.year));
       if (def) {
-        if (!triggered) triggered = this.trigger(def, 'daily');
-        else if (this.pendingQueue.length === 0) this.pendingQueue.push({ def, kind: 'daily' });
+        this.dailyFired += 1;
+        this.yearsSinceModal = 0;
+        triggered = this.trigger(def, 'daily');
       }
     }
 
@@ -456,7 +499,7 @@ export class Game {
     };
   }
 
-  private pickDaily(): EventDef | null {
+  private pickDaily(rng: Rng): EventDef | null {
     const ctx = this.eventCtx();
     const candidates = this.dailyEvents.filter((d) => {
       if (this.age < d.ageRange[0] || this.age > d.ageRange[1]) return false;
@@ -465,7 +508,7 @@ export class Game {
       return matchesConditions(this.dailyEventDef(d), ctx);
     });
     if (candidates.length === 0) return null;
-    const picked = candidates[this.rng.int(0, candidates.length - 1)]!;
+    const picked = candidates[rng.int(0, candidates.length - 1)]!;
     this.dailyLastFired.set(picked.id, this.year);
     return this.dailyEventDef(picked);
   }
@@ -482,6 +525,9 @@ export class Game {
 
     if (this.pending.choices.length === 0) {
       if (choiceId !== CONTINUE_CHOICE_ID) throw new Error(`没有这个选项：${choiceId}`);
+      // 点掉一个「差一年」弹窗也是一条事实。不写进流水，重放时这一步会缺失，
+      // 于是刷新后弹窗复活、当年第二件事被吞掉（实测 6.25% 的存档会静默错位）。
+      this.choiceLogInternal.push({ eventId: this.pending.event.id, choiceId: CONTINUE_CHOICE_ID });
       this.timeline.push({
         year: this.year,
         age: this.age,
@@ -508,16 +554,22 @@ export class Game {
     const setFlags = [...(def.setFlags ?? [])];
 
     if (def.probability && def.probability.length > 0) {
-      const picked = this.rng.weighted(def.probability.map((p) => ({ v: p, w: p.p })));
+      const picked = rngFor(this.seedValue, 'choice', this.year).weighted(
+        def.probability.map((p) => ({ v: p, w: p.p })),
+      );
       outcome = picked.outcome;
       effects = mergeEffects(def.effects, picked.effects);
       setFlags.push(...(picked.setFlags ?? []));
     }
 
     if (effects) {
-      const adjusted: Partial<Stats> = { ...effects };
-      if (adjusted.wealth !== undefined) adjusted.wealth = wealthGain(this.stats, adjusted.wealth);
-      this.stats = applyEffects(this.stats, adjusted);
+      // 事件效果只对"已经很靠前"的部分打折：拆迁/创业/比特币该跃升就跃升，
+      // 但已经在前 30% 的人再加一大笔，收益要减半（规格 §4.3 的均值回归阻力）
+      let applied = effects;
+      if (effects.wealth !== undefined && effects.wealth > 0 && this.stats.wealth > 70) {
+        applied = { ...effects, wealth: effects.wealth * 0.5 };
+      }
+      this.stats = applyEffects(this.stats, applied);
     }
 
     this.milestoneId = stillForEvent(event.id)?.id ?? null;
@@ -534,7 +586,8 @@ export class Game {
     if (event.lastTrain && this.pending.judgement.verdict === 'caught') this.counters.lastTrainHits += 1;
     for (const f of setFlags) {
       if (before.has(f)) continue;
-      if (f === 'migrant' || f === 'relocated') this.counters.moves += 1;
+      // 只有真正迁出原籍才算「离开那座城」；南下打工不算，否则「守一座城」永远 0%
+      if (f === 'relocated') this.counters.moves += 1;
       if (f === 'self_employed') {
         this.counters.startups += 1;
         this.counters.jobChanges += 1;
@@ -574,7 +627,12 @@ export class Game {
 
   private get deathAge(): number {
     const shift = ((this.stats.health - 50) / 50) * STAT_TUNING.healthLifeMod;
-    return Math.min(MAX_AGE, Math.round(this.deathBase + shift));
+    // 长寿尾：常年主动养生的人可以真的多活几年，让「多活十年」成为可经营的 build
+    const tail = Math.min(
+      STAT_TUNING.longevityTailMax,
+      this.healthyYears * STAT_TUNING.longevityTailPerYear,
+    );
+    return Math.min(MAX_AGE, Math.round(this.deathBase + shift + tail));
   }
 
   private die(): void {
@@ -612,8 +670,11 @@ export class Game {
       secondWindowAge: event.secondWindowAge,
     });
 
-    // 账本只记时代窗口；人生阶段事件没有“窗口”可比
-    if (event.layer === 'era') {
+    // 账本只记时代窗口；人生阶段事件没有"窗口"可比。
+    // "路过"也不再无脑入账：只留权重高的、或确实擦边的，否则账本被 8 条路过灌满。
+    const worthLedger =
+      judgement.verdict !== 'passedBy' || event.ledgerWeight >= 4 || judgement.gapMonths <= 24;
+    if (event.layer === 'era' && worthLedger) {
       this.ledger = recordJudgement(this.ledger, {
         eventId: event.id,
         title: event.title,
@@ -676,16 +737,32 @@ export class Game {
     const motherAge = fatherAge - this.rng.int(0, 4);
     const parentDeath = (birthYear: number): number =>
       Math.round(birthYear + cohortLifeExpectancy(birthYear, this.birth.urban) + this.rng.int(-5, 9));
+    // 一家人一个姓：v1 每个成员各抽各的姓，于是出现"父亲姓罗、孩子姓邓"这种截图一放大就露馅的事。
+    // 母亲保留自己的姓（本来就该不同姓），父亲与兄弟姐妹沿用主角的姓。
+    const familySurname = Array.from(this.birth.name)[0] ?? '王';
+    // 家里不能有两个同名的人：v1 直接从名字池随机取，会撞上主角自己的名字，
+    // 于是"兄弟姐妹"那一栏出现一个和主角一模一样的人。改成同一个姓之后更容易撞，
+    // 所以从父亲开始就要查重。
+    const usedNames = new Set([this.birth.name]);
+    const distinctName = (gender: 'male' | 'female', year: number, surname?: string): string => {
+      let name = pickName(this.rng, gender, year, surname);
+      for (let tries = 0; tries < 8 && usedNames.has(name); tries++) {
+        name = pickName(this.rng, gender, year, surname);
+      }
+      usedNames.add(name);
+      return name;
+    };
+
     const members: FamilyMember[] = [
       {
         role: 'father',
-        name: pickName(this.rng, 'male', this.birth.year - fatherAge),
+        name: distinctName('male', this.birth.year - fatherAge, familySurname),
         birthYear: this.birth.year - fatherAge,
         deathYear: parentDeath(this.birth.year - fatherAge),
       },
       {
         role: 'mother',
-        name: pickName(this.rng, 'female', this.birth.year - motherAge),
+        name: distinctName('female', this.birth.year - motherAge),
         birthYear: this.birth.year - motherAge,
         deathYear: parentDeath(this.birth.year - motherAge),
       },
@@ -695,7 +772,7 @@ export class Game {
       const gender = this.rng.chance(0.5) ? 'male' : 'female';
       members.push({
         role: 'sibling',
-        name: pickName(this.rng, gender, this.birth.year - gap),
+        name: distinctName(gender, this.birth.year - gap, familySurname),
         birthYear: this.birth.year - gap,
         deathYear: parentDeath(this.birth.year - gap) + this.rng.int(0, 10),
       });
@@ -719,9 +796,10 @@ export class Game {
     }
     if (setFlags.includes('child_born') && !this.family.some((f) => f.role === 'child')) {
       const gender = this.rng.chance(0.5) ? 'male' : 'female';
+      const surname = Array.from(this.birth.name)[0] ?? '王';
       this.family.push({
         role: 'child',
-        name: pickName(this.rng, gender, this.year),
+        name: pickName(this.rng, gender, this.year, surname),
         birthYear: this.year,
       });
     }

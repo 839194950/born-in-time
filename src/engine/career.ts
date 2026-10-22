@@ -17,9 +17,12 @@ export interface Career {
 }
 
 const STUDENT: Career = { id: 'student', label: '学生', wageMultiple: 0, savingBias: 0, working: false, retired: false };
+const PRESCHOOL: Career = { id: 'preschool', label: '学前', wageMultiple: 0, savingBias: 0, working: false, retired: false };
 const UNEMPLOYED: Career = { id: 'unemployed', label: '待业', wageMultiple: 0, savingBias: -1, working: false, retired: false };
 
 export function deriveCareer(flags: readonly string[], age: number, urban: boolean): Career {
+  // 6 岁以下还谈不上「学生」，否则出生卡下面直接写「学生」，出戏
+  if (age < 6) return PRESCHOOL;
   if (age >= 60 || flags.includes('retired')) {
     return { id: 'retired', label: '退休', wageMultiple: 0.45, savingBias: 0, working: false, retired: true };
   }

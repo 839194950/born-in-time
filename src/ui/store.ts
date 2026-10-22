@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react';
 import { Game, type GameSnapshot } from '../engine/game';
 import {
   clearCurrent,
-  loadCurrent,
+  loadCurrentStatus,
+  type LoadStatus,
   recordFromSnapshot,
   restoreGame,
   saveCurrent,
@@ -16,6 +17,8 @@ export interface GameStore {
   getSnapshot(): GameSnapshot | null;
   getGame(): Game | null;
   startGame(birth: Birth, seed?: number): void;
+  /** 三态：ok 恢复成功 / empty 没有存档 / stale 存档属于旧版本，需要重开 */
+  resumeWithStatus(): LoadStatus;
   resume(): boolean;
   reset(): void;
   setFocus(id: string): void;
@@ -53,6 +56,23 @@ export function createGameStore(): GameStore {
     });
   };
 
+  // 用闭包而不是 this：store 的方法会被拆进 useGame 的 actions 对象里调用，
+  // 那时 this 指向的是那个新对象，方法体里的 this.xxx 会直接炸。
+  const resumeWithStatus = (): LoadStatus => {
+    const { status, save } = loadCurrentStatus();
+    if (status !== 'ok' || !save) return status;
+    let restored: Game;
+    try {
+      restored = restoreGame(save);
+    } catch {
+      // 重放对不上（内容变过 / 档被改过）：明确报 stale，由 UI 提示重开
+      return 'stale';
+    }
+    attach(restored);
+    emit();
+    return 'ok';
+  };
+
   return {
     subscribe(listener) {
       listeners.add(listener);
@@ -72,19 +92,8 @@ export function createGameStore(): GameStore {
       next.start();
       emit();
     },
-    resume() {
-      const save = loadCurrent();
-      if (!save) return false;
-      let restored: Game;
-      try {
-        restored = restoreGame(save);
-      } catch {
-        return false;
-      }
-      attach(restored);
-      emit();
-      return true;
-    },
+    resumeWithStatus,
+    resume: () => resumeWithStatus() === 'ok',
     reset() {
       detach?.();
       detach = null;
@@ -111,6 +120,7 @@ export const store = createGameStore();
 
 export interface GameActions {
   startGame(birth: Birth, seed?: number): void;
+  resumeWithStatus(): LoadStatus;
   resume(): boolean;
   reset(): void;
   setFocus(id: string): void;
@@ -125,6 +135,7 @@ export function useGame(): { snapshot: GameSnapshot | null; actions: GameActions
     snapshot,
     actions: {
       startGame: store.startGame,
+      resumeWithStatus: store.resumeWithStatus,
       resume: store.resume,
       reset: store.reset,
       setFocus: store.setFocus,

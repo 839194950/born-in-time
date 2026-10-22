@@ -9,6 +9,32 @@ export interface Rng {
 }
 
 /**
+ * 命名子流：同一个种子 + 不同用途/年份 → 互不干扰的独立随机序列。
+ *
+ * 为什么必须有：v1 全局共用一条随机流，日常抽取与事件触发互相消耗，
+ * 于是「往日常池里加一条事件」会把之后每一次抽样的随机数全部错位，
+ * 同种子同命的承诺（同年对照、每日种子）整体失效。
+ * 拆成子流后，加内容只影响它自己那条流。
+ */
+export function streamSeed(seed: number, purpose: string, year: number): number {
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  const feed = (text: string): void => {
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  };
+  feed(purpose);
+  feed('#');
+  feed(String(year));
+  return h >>> 0;
+}
+
+export function rngFor(seed: number, purpose: string, year: number): Rng {
+  return createRng(streamSeed(seed, purpose, year));
+}
+
+/**
  * mulberry32：小、快、同种子完全可复现。
  * 存档恢复依赖它的确定性，禁止换成 Math.random。
  */

@@ -122,6 +122,12 @@ export interface EventDef {
   source: string;
   lastTrain?: boolean;
   broadcast?: boolean;
+  /**
+   * 打断强度。>= 3 才会弹窗，< 3 只写一行播报。
+   * 缺省 3（时代事件默认该被打断）。用来把"必须让玩家决策的事"和
+   * "一句话就能带过的事"分开——v1 没有这个字段，于是 60 件事同等重要。
+   */
+  priority?: number;
 }
 
 export interface WindowJudgement {

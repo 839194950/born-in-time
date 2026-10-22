@@ -58,6 +58,14 @@ export function givenNames(year: number, gender: Gender): readonly string[] {
   return gender === 'male' ? era.male : era.female;
 }
 
-export function pickName(rng: Rng, gender: Gender, year: number): string {
-  return rng.pick(SURNAMES) + rng.pick(givenNames(year, gender));
+/**
+ * 取一个名字。
+ *
+ * `surname` 传了就沿用这个姓（一家人得是一个姓），不传才随机。
+ * 注意：传 surname 会跳过 `rng.pick(SURNAMES)` 这一次抽签——重放仍然一致，
+ * 但会改变随机序列，所以升 SAVE_VERSION 时才该动它。
+ */
+export function pickName(rng: Rng, gender: Gender, year: number, surname?: string): string {
+  const family = surname ?? rng.pick(SURNAMES);
+  return family + rng.pick(givenNames(year, gender));
 }

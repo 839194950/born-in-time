@@ -1,14 +1,20 @@
+import { ALL_EVENTS } from '../data/events';
+import { DAILY_EVENTS } from '../data/events/daily';
 import { evaluateEnding } from './ending';
 import { CONTINUE_CHOICE_ID, Game, type GameSnapshot } from './game';
 import type { Birth, LedgerEntry, Stats, TimelineEntry, YearSnapshot } from './types';
 
-export const SAVE_VERSION = 1;
-export const SAVE_KEY = 'sfsq.current.v1';
+/**
+ * 2：RNG 拆成命名子流 + 节奏重排，重放语义已经变了，v1 存档无法续玩。
+ * 升级时连同 KEY 一起换，旧档留在原 key 上不动（不删用户数据，只是不再读它）。
+ */
+export const SAVE_VERSION = 2;
+export const SAVE_KEY = 'sfsq.current.v2';
 export const RECORD_KEY = 'sfsq.records.v1';
 export const MAX_RECORDS = 10;
 
 export interface SaveV1 {
-  v: 1;
+  v: number;
   seed: number;
   birth: Birth;
   year: number;
@@ -19,6 +25,35 @@ export interface SaveV1 {
   timeline: TimelineEntry[];
   /** 抉择流水（含日常/反思，账本只记时代事件不够重放）。旧档没有此字段时为空。 */
   choiceLog?: { eventId: string; choiceId: string }[];
+  /** 事件目录指纹：内容一变就认不出这是同一套规则，存档只能作废。旧档没有此字段。 */
+  ch?: string;
+}
+
+/**
+ * 事件目录指纹（FNV-1a）。
+ *
+ * 为什么需要它：重放依赖"事件池的长度与顺序"——`pickDaily` 拿数组下标当骰子。
+ * 往日常池里加一条，之后每次抽样的随机数就全错位。`SAVE_VERSION` 只认结构不认内容，
+ * 所以必须另有一枚指纹，让"内容变过"这件事在加载时被明确识别，而不是重放时炸在
+ * 某个数值比对里、再被 UI 静默吞掉。
+ */
+let hashCache: string | null = null;
+export function catalogHash(): string {
+  if (hashCache !== null) return hashCache;
+  let h = 0x811c9dc5;
+  const feed = (text: string): void => {
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  };
+  feed(`v${SAVE_VERSION};`);
+  for (const event of ALL_EVENTS) feed(`${event.id},`);
+  // 日常池的顺序也是契约，单独打一段并按原顺序喂
+  feed('|daily;');
+  for (const daily of DAILY_EVENTS) feed(`${daily.id},`);
+  hashCache = h.toString(16).padStart(8, '0');
+  return hashCache;
 }
 
 export interface PastRecord {
@@ -55,6 +90,7 @@ export function serializeGame(game: Game): SaveV1 {
     ledger: s.ledger,
     timeline: s.timeline,
     choiceLog: [...game.choiceLog],
+    ch: catalogHash(),
   };
 }
 
@@ -134,21 +170,47 @@ export function saveCurrent(save: SaveV1): boolean {
   }
 }
 
-export function loadCurrent(): SaveV1 | null {
+export type LoadStatus = 'ok' | 'empty' | 'stale' | 'corrupt';
+
+/**
+ * 三态加载：分得清"没有档"和"档不能用"。
+ * 之前两者都返回 null，UI 只能静默什么都不做——用户看到"继续上一局"能点、点了没反应。
+ */
+export function loadCurrentStatus(): { status: LoadStatus; save: SaveV1 | null } {
   const ls = storage();
-  if (!ls) return null;
+  if (!ls) return { status: 'empty', save: null };
+  let raw: string | null = null;
   try {
-    const raw = ls.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    return isSaveV1(parsed) ? parsed : null;
+    raw = ls.getItem(SAVE_KEY);
   } catch {
-    return null;
+    return { status: 'empty', save: null };
   }
+  if (!raw) return { status: 'empty', save: null };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { status: 'corrupt', save: null };
+  }
+  if (!isSaveV1(parsed)) return { status: 'stale', save: null };
+  // 内容指纹对不上 = 规则已经变了，重放必然错位。宁可明确作废，也不要静默错位。
+  if (parsed.ch !== undefined && parsed.ch !== catalogHash()) return { status: 'stale', save: parsed };
+  return { status: 'ok', save: parsed };
+}
+
+export function loadCurrent(): SaveV1 | null {
+  const { status, save } = loadCurrentStatus();
+  return status === 'ok' ? save : null;
 }
 
 export function hasCurrent(): boolean {
   return loadCurrent() !== null;
+}
+
+/** 有存档（含已失效的旧档）就该显示「继续上一局」——点下去才解释得清为什么不能续 */
+export function hasResumable(): boolean {
+  return loadCurrentStatus().status !== 'empty';
 }
 
 export function clearCurrent(): void {

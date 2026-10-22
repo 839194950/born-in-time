@@ -137,7 +137,8 @@ describe('主引擎：抉择', () => {
 
     expect(g.snapshot.pendingEvent).toBeNull();
     expect(g.snapshot.phase).toBe('playing');
-    expect(g.snapshot.ledger[0]?.verdict).toBe('passedBy');
+    // v2：离窗口很远的「路过」不再进账本（否则账本被 8 条路过灌满），只留一行播报
+    expect(g.snapshot.ledger).toHaveLength(0);
     expect(g.snapshot.timeline.some((t) => t.text.startsWith('远处的浪：'))).toBe(true);
   });
 
@@ -317,7 +318,8 @@ describe('回归：阶段事件不走窗口判定（差一年误判）', () => {
       }
     }
     expect(g.snapshot.phase).toBe('dead');
-    expect(stagePendings).toBeGreaterThanOrEqual(8);
+    // 24 个阶段事件只有 8 个保留弹窗（其余降级为一行播报），个别年份可能被别的弹窗占掉
+    expect(stagePendings).toBeGreaterThanOrEqual(7);
   });
 });
 

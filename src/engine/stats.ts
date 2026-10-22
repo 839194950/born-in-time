@@ -3,12 +3,12 @@ import { STAT_KEYS, STAT_MAX, STAT_MIN, type Birth, type Stats, type Tier } from
 
 /** 调参入口：所有系数集中在这里，Task 23 只改这些数 */
 export const STAT_TUNING = {
-  /** 幸福向基准线回落的年度比例 */
-  happinessAdaptRate: 0.25,
+  /** 幸福向基准线回落的年度比例（能力正常化后基准线下移，回落速度也要放缓） */
+  happinessAdaptRate: 0.18,
   /** 财富百分位超过该值后，继续上涨开始打折 */
-  wealthDragFrom: 50,
+  wealthDragFrom: 45,
   /** 打折斜率：每高 1 点百分位，少这么多比例 */
-  wealthDragPerPoint: 1 / 40,
+  wealthDragPerPoint: 1 / 30,
   /** 最多打掉的比例 */
   wealthDragFloor: 0.2,
   /** 健康终值对寿命的最大修正（年） */
@@ -17,6 +17,17 @@ export const STAT_TUNING = {
   deathNoiseYears: 4,
   /** 幸福基准线权重 */
   baselineWeights: { health: 0.3, family: 0.3, wealth: 0.2, ability: 0.2 },
+  /** 健康低于"这个岁数还养得回来的上限"时，正向健康效果翻倍（只奖励主动选择） */
+  healthRecoverBoost: 2.2,
+  /** 55 岁后能力开始折旧（规格 §4.2「会被时代打折的存量」） */
+  abilityDecayAge: 55,
+  abilityDecayPerYear: -0.5,
+  /** 55 岁后亲情进入支出期（空巢，规格 §4.4） */
+  familyDecayAge: 55,
+  familyDecayPerYear: -0.35,
+  /** 长寿尾：常年选"养生/运动"的人可以真的多活几年 */
+  longevityTailMax: 8,
+  longevityTailPerYear: 0.4,
 } as const;
 
 /**
@@ -61,7 +72,7 @@ export function initialStats(birth: Birth): Stats {
   const rank = TIER_RANK[birth.tier];
   const urban = birth.urban ? 1 : 0;
   return clampStats({
-    health: 60 + rank * 3 + urban * 5 - (birth.siblings > 0 ? 1 : 0),
+    health: 66 + rank * 3 + urban * 5 - (birth.siblings > 0 ? 1 : 0),
     ability: 32 + rank * 4 + urban * 10,
     wealth: 8 + rank * 17 + urban * 7,
     family: 66 + rank * 2 - birth.siblings * 4 + (birth.urban ? 0 : 3),
@@ -69,11 +80,34 @@ export function initialStats(birth: Birth): Stats {
   });
 }
 
-/** 40 岁前平缓，55 岁后加速。只出不进，只能靠锻炼和医疗延缓。 */
+/**
+ * 40 岁前平缓，55 岁后加速。只出不进，只能靠锻炼和医疗延缓。
+ *
+ * v2 把三个档位都砍了一半：v1 的全程衰减积分约 -24，再叠加重心净成本与事件，
+ * 健康终值被压到 17.5，所有人卡在同一个底——那不是"底盘"，是"滑梯"。
+ */
 export function healthDecay(age: number): number {
-  if (age < 40) return -0.1;
-  if (age < 55) return -0.35;
-  return -0.75;
+  if (age < 40) return -0.05;
+  if (age < 55) return -0.2;
+  return -0.45;
+}
+
+/**
+ * 这个岁数"还养得回来的上限"。年龄越大，上限越低——
+ * 保证长期趋势仍然只出不进，但给主动养生留出真实的空间。
+ */
+export function healthBand(age: number): number {
+  return 62 - 0.45 * Math.max(0, age - 30);
+}
+
+/** 55 岁后能力折旧：手艺会被时代打折，不该是一路只涨的棘轮 */
+export function abilityDecay(age: number): number {
+  return age > STAT_TUNING.abilityDecayAge ? STAT_TUNING.abilityDecayPerYear : 0;
+}
+
+/** 55 岁后亲情进入支出期：父母老去、子女离巢，关系要花力气才维持得住 */
+export function familyDecay(age: number): number {
+  return age > STAT_TUNING.familyDecayAge ? STAT_TUNING.familyDecayPerYear : 0;
 }
 
 export function happinessBaseline(stats: Stats): number {

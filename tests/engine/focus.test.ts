@@ -4,7 +4,9 @@ import type { Stage, Stats } from '../../src/engine/types';
 
 const base: Stats = { health: 60, ability: 50, wealth: 40, family: 60, happiness: 55 };
 
-const ACTIVE_STAGES: Stage[] = ['child', 'student', 'work', 'midlife', 'elder'];
+const FOUR_STAGES: Stage[] = ['child', 'student', 'work', 'midlife', 'elder'];
+// 幼儿期也有两项照护倾向：0–5 岁不再零操作（规格 §5 只写了儿童期，但开局 27 秒真空必须堵掉）
+const ACTIVE_STAGES: Stage[] = ['infant', ...FOUR_STAGES];
 
 describe('stageForAge', () => {
   it('按规格切分六个阶段', () => {
@@ -24,8 +26,8 @@ describe('stageForAge', () => {
 });
 
 describe('年度重心选项', () => {
-  it('每个可操作阶段 4 个选项，id 不重复', () => {
-    for (const stage of ACTIVE_STAGES) {
+  it('除幼儿期外每个阶段 4 个选项，id 不重复', () => {
+    for (const stage of FOUR_STAGES) {
       const opts = focusOptionsFor(stage);
       expect(opts).toHaveLength(4);
       expect(new Set(opts.map((o) => o.id)).size).toBe(4);
@@ -33,8 +35,14 @@ describe('年度重心选项', () => {
     }
   });
 
-  it('幼儿期没有年度重心', () => {
-    expect(focusOptionsFor('infant')).toHaveLength(0);
+  it('幼儿期给两个照护倾向，而不是零操作', () => {
+    const opts = focusOptionsFor('infant');
+    expect(opts).toHaveLength(2);
+    for (const o of opts) {
+      const values = Object.values(o.effects);
+      expect(values.some((v) => (v ?? 0) < 0)).toBe(true);
+      expect(values.some((v) => (v ?? 0) > 0)).toBe(true);
+    }
   });
 
   it('每项都有取舍：至少一项数值要降', () => {

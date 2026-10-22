@@ -7,6 +7,7 @@ import type { EventDef } from '../../engine/types';
 export const STAGE_EVENTS: EventDef[] = [
   {
     id: 'stage_school_entry',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 6 },
     windowAge: [6, 6],
@@ -37,6 +38,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_primary_years',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 10 },
     windowAge: [10, 10],
@@ -65,6 +67,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_zhongkao',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 15 },
     windowAge: [15, 15],
@@ -77,7 +80,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'high_school',
         label: '读高中',
-        requires: { statMin: { ability: 35 } },
+        requires: { statMin: { ability: 46 } },
         lockedText: '分数不够普高线',
         effects: { ability: 4, wealth: -1 },
         outcome: '你去了县一中，住八个人的宿舍。',
@@ -103,6 +106,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_gaokao',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 18 },
     windowAge: [18, 18],
@@ -113,7 +117,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'college',
         label: '报本科',
-        requires: { statMin: { ability: 45 } },
+        requires: { statMin: { ability: 58 } },
         lockedText: '分数够不上',
         effects: { ability: 6, wealth: -2, happiness: 2 },
         outcome: '你考上了，去了一个从没去过的城市。',
@@ -138,6 +142,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_major_choice',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 19 },
     windowAge: [19, 19],
@@ -170,6 +175,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_graduation',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 21 },
     windowAge: [21, 21],
@@ -193,7 +199,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'exam',
         label: '考编考公',
-        requires: { statMin: { ability: 50 } },
+        requires: { statMin: { ability: 62 } },
         lockedText: '你没敢报，怕考不上',
         effects: { wealth: 2, ability: 2, happiness: -1 },
         outcome: '你考上了，报到那天穿了新衬衫。',
@@ -209,6 +215,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_first_job',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 23 },
     windowAge: [23, 23],
@@ -218,7 +225,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'state_owned',
         label: '进国企或事业单位',
-        requires: { statMin: { ability: 40 } },
+        requires: { statMin: { ability: 52 } },
         lockedText: '没赶上招考',
         effects: { wealth: 3, family: 1, happiness: 1 },
         outcome: '你端上了别人眼里的铁饭碗。',
@@ -234,7 +241,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'edtech',
         label: '去教培机构当老师',
-        requires: { statMin: { ability: 45 } },
+        requires: { statMin: { ability: 58 } },
         lockedText: '面试没通过',
         effects: { wealth: 4, ability: 2, health: -1 },
         outcome: '你进了城里一家做课外辅导的机构，课排得很满。',
@@ -253,6 +260,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_marriage',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 27 },
     windowAge: [27, 27],
@@ -289,6 +297,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_startup',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 28 },
     windowAge: [28, 28],
@@ -298,7 +307,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'go',
         label: '出来单干',
-        requires: { statMin: { ability: 45 } },
+        requires: { statMin: { ability: 58 } },
         lockedText: '你还没摸清门路',
         effects: { health: -2, family: -1 },
         outcome: '你注册了公司，办公室是租来的一间小屋。',
@@ -321,6 +330,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_child_birth',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 30 },
     windowAge: [30, 30],
@@ -348,6 +358,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_first_home',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 32 },
     windowAge: [32, 32],
@@ -358,7 +369,7 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'buy',
         label: '贷款买',
-        requires: { statMin: { wealth: 35 } },
+        requires: { statMin: { wealth: 42 } },
         lockedText: '首付还差得远',
         effects: { wealth: 9, family: 2, happiness: -2, health: -1 },
         outcome: '你有了自己的房子，也有了三十年的月供。',
@@ -377,6 +388,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_job_hop',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 33 },
     windowAge: [33, 33],
@@ -402,6 +414,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_kids_education',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 38 },
     windowAge: [38, 38],
@@ -429,6 +442,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_second_home',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 40 },
     windowAge: [40, 40],
@@ -458,6 +472,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_siblings_split',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 43 },
     windowAge: [43, 43],
@@ -486,6 +501,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_parents_illness',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 45 },
     windowAge: [45, 45],
@@ -511,6 +527,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_third_home',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 48 },
     windowAge: [48, 48],
@@ -540,6 +557,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_parents_care',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 52 },
     windowAge: [52, 52],
@@ -571,6 +589,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_own_illness',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 55 },
     windowAge: [55, 55],
@@ -596,6 +615,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_spouse_change',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 58 },
     windowAge: [58, 58],
@@ -623,6 +643,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_retire',
+    priority: 4,
     layer: 'stage',
     trigger: { type: 'age', age: 60 },
     windowAge: [60, 60],
@@ -648,6 +669,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_grandchild',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 63 },
     windowAge: [63, 63],
@@ -674,6 +696,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_old_friends',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 68 },
     windowAge: [68, 68],
@@ -699,6 +722,7 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_will',
+    priority: 2,
     layer: 'stage',
     trigger: { type: 'age', age: 75 },
     windowAge: [75, 75],

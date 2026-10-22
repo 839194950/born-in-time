@@ -5,7 +5,22 @@ import type { FocusOption, Stage } from '../engine/types';
  * 每项都必须有升有降 —— 这是规格 §5 的硬规则，测试会强制。
  */
 export const FOCUS_OPTIONS: Readonly<Record<Stage, readonly FocusOption[]>> = {
-  infant: [],
+  // 0–5 岁：不给孩子真正的"决策"，只给两个照护倾向。
+  // 目的是消灭开场 27 秒的纯真空转（首个抉择在 6 岁，1× 下要等 6 年）。
+  infant: [
+    {
+      id: 'hold',
+      label: '多抱抱',
+      effects: { family: 3, ability: -1 },
+      axes: { companion: 2, calm: 2 },
+    },
+    {
+      id: 'early_learn',
+      label: '早早识字',
+      effects: { ability: 3, happiness: -1 },
+      axes: { future: 2, work: 1 },
+    },
+  ],
   child: [
     {
       id: 'play',

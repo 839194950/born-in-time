@@ -77,6 +77,8 @@ export const SCENES: readonly { id: SceneId; name: string; mode: 'outdoor' | 'in
 
 /** 按年龄、城乡与身份选一张场景，不做随机 */
 export function sceneForContext(ctx: { age: number; urban: boolean; role: OutfitRole }): SceneId {
+  // 学龄前在"家"，不是教室 —— v1 把 0 岁的婴儿画在黑板前面
+  if (ctx.age < 6) return ctx.urban ? 'living' : 'yard';
   if (ctx.age < 12) return ctx.urban ? 'classroom' : 'yard';
   if (ctx.age < 23) return 'classroom';
   if (ctx.role === 'worker') return 'factory';
@@ -88,6 +90,11 @@ export function sceneForContext(ctx: { age: number; urban: boolean; role: Outfit
 
 /**
  * 场景色调随年份滑动：80 年代褪色胶片 → 90 年代微暖 → 2000 年代后干净明亮。
+ *
+ * ⚠️ v2 起 UI 不再用这个函数：把 sepia/brightness 套在整块 canvas 上会连角色一起洗掉，
+ * 而且 `transition: filter` 会在大画布上反复重绘。年代色调改由 `ui/lib/scene.ts`
+ * 的 `eraOverlay()` 在 canvas 内只压一层极淡暖色（只影响背景，不影响角色）。
+ * 这个函数保留给数据层与测试（`tests/data/props.test.ts` 仍在验证它的曲线）。
  */
 export function toneFilter(year: number): string {
   const t = Math.min(1, Math.max(0, (year - 1977) / 33));

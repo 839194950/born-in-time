@@ -21,14 +21,30 @@ export interface BatchRow {
   finalStats: Stats;
 }
 
-/** 用“总是选第一个可用项”的机器人跑完一局，用来观察数值与节奏 */
-export function runOne(seed: number): BatchRow {
+/**
+ * 机器人策略。
+ * - `first`：永远选第一个可用项（默认，代表"随大流"的玩家）
+ * - `health`：每年把重心切到最养生的那项（代表"刻意为长寿经营"的玩家）
+ *
+ * 两条曲线一起看才有意义：某个称号在 first 上为 0、在 health 上可达，
+ * 说明它是"可经营的 build"，而不是"随机抽奖"。
+ */
+export type BotStrategy = 'first' | 'health';
+
+/** 用机器人跑完一局，用来观察数值与节奏 */
+export function runOne(seed: number, strategy: BotStrategy = 'first'): BatchRow {
   const game = new Game({ seed });
   game.start();
 
   let guard = 0;
   while (game.snapshot.phase !== 'dead' && guard++ < 300) {
     const snap = game.snapshot;
+    if (strategy === 'health' && snap.focusOptions.length > 0) {
+      const best = snap.focusOptions.reduce((a, b) =>
+        (b.effects.health ?? 0) > (a.effects.health ?? 0) ? b : a,
+      );
+      if (best && snap.focusId !== best.id) game.setFocus(best.id);
+    }
     if (snap.phase === 'awaitingChoice') {
       const pick = snap.pendingEvent?.choices.find((c) => c.state === 'available');
       game.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
@@ -59,8 +75,8 @@ export function runOne(seed: number): BatchRow {
   };
 }
 
-export function runBatch(count: number, seed0 = 1): BatchRow[] {
-  return Array.from({ length: count }, (_, i) => runOne(seed0 + i));
+export function runBatch(count: number, seed0 = 1, strategy: BotStrategy = 'first'): BatchRow[] {
+  return Array.from({ length: count }, (_, i) => runOne(seed0 + i, strategy));
 }
 
 export interface BatchSummary {

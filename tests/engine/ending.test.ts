@@ -45,8 +45,8 @@ const entry = (eventId: string, verdict: Verdict, over: Partial<LedgerEntry> = {
 });
 
 describe('命型判定', () => {
-  it('四次差一年就是“每次都差一年的人”', () => {
-    expect(titleOf(agg({ nearMiss: 4, caught: 5, hitRate: 0.7 }))).toBe('每次都差一年的人');
+  it('五次差一年就是「每次都差一年的人」（内容扩充后阈值抬到 5）', () => {
+    expect(titleOf(agg({ nearMiss: 5, caught: 5, hitRate: 0.7 }))).toBe('每次都差一年的人');
   });
 
   it('窗口命中率七成以上且赶上了浪', () => {

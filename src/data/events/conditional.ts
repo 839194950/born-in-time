@@ -144,7 +144,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     layer: 'conditional',
     trigger: { type: 'age', age: 30 },
     windowAge: [30, 30],
-    conditions: { statMin: { ability: 55 } },
+    conditions: { statMin: { ability: 68 } },
     title: '一个视频火了',
     body: '你随手发的一条视频，一晚上涨了几十万播放。私信里全是问“还更新吗”的人。',
     choices: [
@@ -277,7 +277,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
       },
     ],
     ledgerWeight: 4,
-    source: '2019 年比特币价格在 3000–13000 美元区间震荡（CoinMarketCap 历史行情）',
+    source: '2019 年比特币价格在约 3400–13800 美元区间震荡（CoinMarketCap 历史行情）',
   },
   {
     id: 'cond_btc_peak_2020',
