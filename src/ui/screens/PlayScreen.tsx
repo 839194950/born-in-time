@@ -15,8 +15,9 @@ import { StatBar } from '../components/StatBar';
 import { Timeline } from '../components/Timeline';
 import { useGame } from '../store';
 
-/** 1× 下一年 4.5 秒 */
-export const YEAR_MS = 4500;
+/** 1× 下一年 60 秒：一生约一小时（用户 2026-10-22 拍板，对齐 1in8b 的节奏）。
+ *  想快的走倍速：16× 时一年 3.75 秒。 */
+export const YEAR_MS = 60000;
 export const SPEEDS = [1, 2, 4, 8, 16] as const;
 
 export interface PlayActions {
