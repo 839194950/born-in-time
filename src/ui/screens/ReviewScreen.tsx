@@ -8,6 +8,7 @@ import { simulatePeers } from '../../engine/peers';
 import { TIER_LABEL } from '../../data/labels';
 import type { EndingCardData } from '../lib/endingCard';
 import { StatBar } from '../components/StatBar';
+import { loadCollection, mergeCaught, titleOfEvent } from '../lib/collection';
 
 const AXES: readonly { left: AxisKey; right: AxisKey; leftLabel: string; rightLabel: string }[] = [
   { left: 'companion', right: 'work', leftLabel: '陪伴', rightLabel: '工作' },
@@ -206,11 +207,46 @@ export function ReviewScreen({
         </section>
       )}
 
+      <CollectionBlock ledger={snapshot.ledger} />
+
       <div className="actions">
         <button type="button" className="btn-primary" onClick={onRestart}>
           再抽一年
         </button>
       </div>
     </main>
+  );
+}
+
+/**
+ * 际遇图鉴：这一局赶上的时代窗口会永久点亮。
+ * 想凑齐「房改末班车」「不再包分配」的人，会自己再去抽一年。
+ */
+function CollectionBlock({ ledger }: { ledger: readonly { eventId: string; verdict: string }[] }) {
+  const { state, newly } = useMemo(() => {
+    const caught = ledger.filter((e) => e.verdict === 'caught').map((e) => e.eventId);
+    return mergeCaught(caught);
+  }, [ledger]);
+  const owned = useMemo(() => new Set(loadCollection()), [state]);
+  const pct = Math.round((state.caught.length / Math.max(1, state.total)) * 100);
+
+  return (
+    <section className="review-block">
+      <h2>际遇图鉴</h2>
+      <p className="review-best">
+        {`你一共赶上过 ${state.caught.length} / ${state.total} 个时代窗口（${pct}%）。`}
+        {newly.length > 0 && ` 这一局新点亮了：${newly.map(titleOfEvent).join('、')}。`}
+      </p>
+      <div className="collection-bar" aria-hidden="true">
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      <ul className="collection-list">
+        {[...owned].slice(0, 12).map((id) => (
+          <li key={id} className="is-lit">
+            {titleOfEvent(id)}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

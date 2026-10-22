@@ -1,10 +1,18 @@
 import type { TimelineEntry } from '../../engine/types';
 
-export function Timeline({ entries, limit = 8 }: { entries: readonly TimelineEntry[]; limit?: number }) {
+export function Timeline({
+  entries,
+  limit = 8,
+  hideTitle = false,
+}: {
+  entries: readonly TimelineEntry[];
+  limit?: number;
+  hideTitle?: boolean;
+}) {
   const shown = [...entries].reverse().slice(0, limit);
   return (
     <section className="timeline" aria-label="人生纪录">
-      <h3>人生纪录</h3>
+      {!hideTitle && <h3>人生纪录</h3>}
       {shown.length === 0 ? (
         <p className="timeline-empty">还没有什么可记的。</p>
       ) : (

@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import type { PendingEvent } from '../../engine/game';
+import { STAT_LABEL } from '../../engine/format';
+import { STAT_MAX, type StatKey, type Stats } from '../../engine/types';
 import { gapText, verdictText } from '../../engine/window';
+
+const STAT_ORDER: readonly StatKey[] = ['health', 'ability', 'wealth', 'family', 'happiness'];
 
 const VERDICT_CLASS: Record<string, string> = {
   caught: 'badge-caught',
@@ -21,10 +25,12 @@ export function nearMissLine(judgement: PendingEvent['judgement'], windowAge: [n
 
 export function EventModal({
   pending,
+  stats,
   onPick,
   onContinue,
 }: {
   pending: PendingEvent;
+  stats: Stats;
   onPick: (id: string) => void;
   onContinue: () => void;
 }) {
@@ -43,6 +49,24 @@ export function EventModal({
           <h2>{event.title}</h2>
         </div>
 
+        {/* 移动端弹窗是底部抽屉，会把页面上的五维条盖住——而玩家正是要看着它做选择。
+            所以把读数复制一份进弹窗，做成一行紧凑的迷你条。 */}
+        <div className="modal-stats" aria-label="当前五维">
+          {STAT_ORDER.map((key) => {
+            const value = stats[key];
+            const pct = Math.max(0, Math.min(100, (value / STAT_MAX) * 100));
+            return (
+              <span className="ms" key={key}>
+                <span className="ms-label">{STAT_LABEL[key]}</span>
+                <span className="ms-value">{Math.round(value)}</span>
+                <span className="ms-track">
+                  <span className={`ms-fill stat-${key}`} style={{ width: `${pct}%` }} />
+                </span>
+              </span>
+            );
+          })}
+        </div>
+
         <p className="modal-body">{text}</p>
 
         {pending.kind === 'event' && judgement.verdict === 'nearMiss' && (
@@ -57,7 +81,12 @@ export function EventModal({
               继续过日子
             </button>
           ) : (
-            choices.map((choice) => {
+            // 能选的排前面，置灰的排后面。
+            // v1 按数据顺序渲染，于是玩家第一眼看到的常常是那个灰的——
+            // 门槛提高后（见偏离清单 13.6）置灰项变多，一进来就杵着一个点不动的按钮。
+            [...choices]
+              .sort((a, b) => (a.state === 'locked' ? 1 : 0) - (b.state === 'locked' ? 1 : 0))
+              .map((choice) => {
               const locked = choice.state === 'locked';
               return (
                 <button

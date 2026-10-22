@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { sceneForContext, toneFilter } from '../../data/props';
+import { useEffect, useRef, useState } from 'react';
+import { sceneForContext } from '../../data/props';
 import type { FamilyMember, Gender } from '../../engine/types';
 import { outfitFor, type OutfitRole } from '../lib/pixel';
 import { SCENE_H, SCENE_W, drawScene } from '../lib/scene';
@@ -13,6 +13,8 @@ export interface SceneStageProps {
   happiness: number;
   flags: readonly string[];
   family?: readonly FamilyMember[];
+  /** frame = 挂在页面里的带框场景；plain = 当背景用，不要画框和角标 */
+  variant?: 'frame' | 'plain';
 }
 
 export function roleFromFlags(flags: readonly string[], urban: boolean): OutfitRole {
@@ -27,9 +29,32 @@ export function roleFromFlags(flags: readonly string[], urban: boolean): OutfitR
  * 场景与角色都在 canvas 上按像素网格绘制：零素材、风格一致、随时可改。
  * 以后要换成手绘 PNG，只需要改这一个组件。
  */
-export function SceneStage({ year, age, gender, urban, health, happiness, flags, family = [] }: SceneStageProps) {
+export function SceneStage({
+  year,
+  age,
+  gender,
+  urban,
+  health,
+  happiness,
+  flags,
+  family = [],
+  variant = 'frame',
+}: SceneStageProps) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const role = roleFromFlags(flags, urban);
+  /** 待机呼吸：0 / 1 两帧交替。幅度只有 1px，但两帧之后就不是贴纸了。 */
+  const [breath, setBreath] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    // 尊重 reduced-motion：这类用户看到的是静帧，不是"动画坏了"
+    const reduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+    const id = window.setInterval(() => setBreath((b) => (b === 0 ? 1 : 0)), 1100);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -41,28 +66,27 @@ export function SceneStage({ year, age, gender, urban, health, happiness, flags,
       year,
       urban,
       scene: sceneForContext({ age, urban, role }),
-      sprite: { stage: stageOf(age), gender, outfit: outfitFor(age, gender, role), age, health, happiness },
+      sprite: { stage: stageOf(age), gender, outfit: outfitFor(age, gender, role), age, health, happiness, breath },
       companions: companionsFor(family, year, age, gender),
     });
-  }, [year, age, gender, urban, health, happiness, role, family]);
+  }, [year, age, gender, urban, health, happiness, role, family, breath]);
 
   return (
-    <div className="scene-wrap">
+    <div className={variant === 'plain' ? 'scene-plain' : 'scene-wrap'}>
       <canvas
         ref={ref}
-        className={`scene-canvas${happiness >= 70 ? ' is-happy' : ''}`}
+        className="scene-canvas"
         width={SCENE_W}
         height={SCENE_H}
-        style={{ filter: toneFilter(year) }}
         role="img"
         aria-label={`${year} 年的场景`}
       />
-      <span className="scene-caption">{`${year} · ${urban ? '城镇' : '乡村'}`}</span>
+      {variant === 'frame' && <span className="scene-caption">{`${year} · ${urban ? '城镇' : '乡村'}`}</span>}
     </div>
   );
 }
 
-function stageOf(age: number): 'infant' | 'child' | 'student' | 'work' | 'midlife' | 'elder' {
+export function stageOf(age: number): 'infant' | 'child' | 'student' | 'work' | 'midlife' | 'elder' {
   if (age < 6) return 'infant';
   if (age < 13) return 'child';
   if (age < 23) return 'student';

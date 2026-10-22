@@ -27,6 +27,8 @@ const caught: PendingEvent = {
   ],
 };
 
+const STATS = { health: 64, ability: 71, wealth: 38, family: 82, happiness: 55 };
+
 const nearMiss: PendingEvent = {
   event: { ...baseEvent, title: '房改' },
   judgement: { verdict: 'nearMiss', age: 21, ageMonths: 252, gapMonths: 11 },
@@ -37,25 +39,36 @@ const nearMiss: PendingEvent = {
 
 describe('事件弹窗', () => {
   it('显示标题、正文与出处', () => {
-    const html = renderToString(<EventModal pending={caught} onPick={() => {}} onContinue={() => {}} />);
+    const html = renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
     expect(html).toContain('高校扩招');
     expect(html).toContain('这一年的招生计划多了五十一万人。');
     expect(html).toContain('教育部 1999 年招生计划');
   });
 
+  it('弹窗里带五维读数——移动端抽屉会盖住页面上的数值条', () => {
+    const html = renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
+    for (const label of ['健康', '能力', '财富', '亲情', '幸福']) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain('modal-stats');
+    // 值也要在，不能只留标签
+    expect(html).toContain('71');
+    expect(html).toContain('82');
+  });
+
   it('判定徽标显示赶上/差一年', () => {
-    expect(renderToString(<EventModal pending={caught} onPick={() => {}} onContinue={() => {}} />)).toContain('赶上');
-    expect(renderToString(<EventModal pending={nearMiss} onPick={() => {}} onContinue={() => {}} />)).toContain('差一年');
+    expect(renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />)).toContain('赶上');
+    expect(renderToString(<EventModal pending={nearMiss} stats={STATS} onPick={() => {}} onContinue={() => {}} />)).toContain('差一年');
   });
 
   it('选项带数值预览', () => {
-    const html = renderToString(<EventModal pending={caught} onPick={() => {}} onContinue={() => {}} />);
+    const html = renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
     expect(html).toContain('能力 +6');
     expect(html).toContain('财富 −2');
   });
 
   it('置灰项仍然可见，写明原因且不可聚焦', () => {
-    const html = renderToString(<EventModal pending={caught} onPick={() => {}} onContinue={() => {}} />);
+    const html = renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
     expect(html).toContain('报考专科');
     expect(html).toContain('成绩够不上');
     expect(html).toContain('aria-disabled="true"');
@@ -63,7 +76,7 @@ describe('事件弹窗', () => {
   });
 
   it('差一年不给选项，只给“继续”与差距月数', () => {
-    const html = renderToString(<EventModal pending={nearMiss} onPick={() => {}} onContinue={() => {}} />);
+    const html = renderToString(<EventModal pending={nearMiss} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
     expect(html).toContain('11 个月');
     expect(html).toContain('继续过日子');
     expect(html).not.toContain('报考本科');

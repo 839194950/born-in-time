@@ -4,11 +4,25 @@ import { PALETTE, drawCharacter, type SpriteSpec } from './pixel';
 export const SCENE_W = 960;
 export const SCENE_H = 540;
 
+/**
+ * 场景像素单位：1 个场景像素 = 3 个屏幕像素。
+ * 960×540 的画布因此是 320×180 个"场景像素"，与角色（48×64 @ scale 3）密度一致。
+ * v1 的问题正是角色按 3px 画、背景按 1px 画，两种密度叠在一帧里。
+ */
+const U = 3;
+const UW = SCENE_W / U; // 320
+const UH = SCENE_H / U; // 180
+
+/** 角色脚底基线在 48×64 画布内的位置（与 pixel.ts 的 FEET_Y 一致） */
+const SPRITE_FEET = 60;
+const SPRITE_SCALE = 3;
+
 export interface SceneSpec {
   year: number;
   urban: boolean;
   scene: SceneId;
   sprite: SpriteSpec;
+  /** companions 的 x 仍然是 960 像素坐标，方便沿用旧调用 */
   companions?: { sprite: SpriteSpec; x: number }[];
 }
 
@@ -17,164 +31,465 @@ type Rect = (x: number, y: number, w: number, h: number, color: string) => void;
 function makeRect(ctx: CanvasRenderingContext2D): Rect {
   return (x, y, w, h, color) => {
     ctx.fillStyle = color;
-    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.fillRect(Math.round(x * U), Math.round(y * U), Math.round(w * U), Math.round(h * U));
   };
 }
 
-function drawSky(r: Rect): void {
-  r(0, 0, SCENE_W, 160, PALETTE.skyHigh);
-  r(0, 160, SCENE_W, 120, PALETTE.skyLow);
-  r(700, 60, 60, 60, PALETTE.cream);
-  r(720, 80, 20, 20, PALETTE.skyHigh);
-}
-
-function drawBuilding(r: Rect, year: number, x: number): void {
-  const id = propsForYear(year).find((p) => p.slot === 'building')?.id ?? 'earth';
-  if (id === 'earth') {
-    r(x, 300, 190, 140, PALETTE.brownDark);
-    r(x - 10, 280, 210, 24, PALETTE.brown);
-    r(x + 40, 360, 40, 80, PALETTE.outline);
-    r(x + 110, 330, 40, 40, PALETTE.glass);
-  } else if (id === 'brick') {
-    r(x, 250, 200, 190, PALETTE.red);
-    r(x - 8, 232, 216, 20, PALETTE.brownDark);
-    r(x + 50, 360, 46, 80, PALETTE.outline);
-    r(x + 120, 300, 46, 44, PALETTE.glass);
-  } else if (id === 'midrise') {
-    r(x, 180, 210, 260, PALETTE.wall);
-    r(x, 180, 210, 12, PALETTE.wallDark);
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 3; j++) r(x + 20 + j * 60, 210 + i * 56, 40, 34, PALETTE.glass);
-    }
-  } else {
-    r(x + 10, 100, 230, 340, PALETTE.grayDark);
-    r(x + 10, 100, 230, 10, PALETTE.gray);
-    for (let i = 0; i < 7; i++) {
-      for (let j = 0; j < 3; j++) r(x + 26 + j * 66, 130 + i * 42, 46, 26, PALETTE.glass);
-    }
+/** 像素圆：逐行求半宽，画成一条条横带 */
+function disc(r: Rect, cx: number, cy: number, radius: number, color: string): void {
+  for (let dy = -radius; dy <= radius; dy++) {
+    const span = Math.floor(Math.sqrt(radius * radius - dy * dy));
+    if (span <= 0) continue;
+    r(cx - span, cy + dy, span * 2, 1, color);
   }
 }
 
-function drawVehicle(r: Rect, year: number, x: number, y: number): void {
+/** 云：平底 + 两三个圆顶，底部只留一线极淡的影（不画"笑脸"，否则像动物头） */
+function cloud(r: Rect, x: number, y: number, k: number): void {
+  disc(r, x + k * 2, y + k * 0.6, k * 2.2, PALETTE.cloud);
+  disc(r, x + k * 5, y - k * 0.4, k * 2.8, PALETTE.cloud);
+  disc(r, x + k * 8, y + k * 0.4, k * 2, PALETTE.cloud);
+  r(x - k * 0.2, y + k * 1.8, k * 10, k * 1.4, PALETTE.cloud);
+  r(x, y + k * 3.2, k * 9.4, k * 0.5, PALETTE.cloudShade);
+}
+
+/** 树：树干上细下粗，树冠用不等大的圆叠出蓬松感（对称圆会变成"米奇头"） */
+function tree(r: Rect, x: number, groundY: number, size: number): void {
+  r(x - 2, groundY - 20, 5, 20, PALETTE.trunkDark);
+  r(x - 1, groundY - 20, 3, 20, PALETTE.trunk);
+
+  const cy = groundY - size * 0.82;
+  disc(r, x, cy, size * 0.52, PALETTE.leafDark);
+  disc(r, x - size * 0.34, cy + size * 0.12, size * 0.4, PALETTE.leafDark);
+  disc(r, x + size * 0.36, cy + size * 0.1, size * 0.38, PALETTE.leafDark);
+
+  disc(r, x - size * 0.06, cy - size * 0.06, size * 0.44, PALETTE.leaf);
+  disc(r, x - size * 0.32, cy + size * 0.02, size * 0.3, PALETTE.leaf);
+  disc(r, x + size * 0.3, cy + size * 0.02, size * 0.28, PALETTE.leaf);
+  disc(r, x - size * 0.16, cy - size * 0.24, size * 0.24, PALETTE.leafLight);
+}
+
+function bush(r: Rect, x: number, groundY: number, k: number): void {
+  disc(r, x, groundY - k * 0.7, k, PALETTE.leafDark);
+  disc(r, x - k * 0.8, groundY - k * 0.5, k * 0.75, PALETTE.leaf);
+  disc(r, x + k * 0.8, groundY - k * 0.5, k * 0.7, PALETTE.leaf);
+  disc(r, x - k * 0.3, groundY - k * 0.9, k * 0.4, PALETTE.leafLight);
+}
+
+function windowPane(r: Rect, x: number, y: number, w: number, h: number): void {
+  r(x - 1, y - 1, w + 2, h + 2, PALETTE.frame);
+  r(x, y, w, h, PALETTE.glass);
+  r(x + Math.round(w / 2) - 1, y, 2, h, PALETTE.frame);
+  r(x, y + Math.round(h / 2) - 1, w, 2, PALETTE.frame);
+  r(x + 1, y + 1, Math.round(w / 3), 2, PALETTE.white);
+}
+
+function fence(r: Rect, x: number, groundY: number, width: number): void {
+  const top = groundY - 20;
+  for (let i = 0; i <= width; i += 11) {
+    r(x + i, top, 4, 20, PALETTE.cream);
+    r(x + i + 3, top, 1, 20, PALETTE.woodDark);
+    r(x + i, top, 4, 1, PALETTE.white);
+  }
+  r(x, top + 4, width + 4, 3, PALETTE.cream);
+  r(x, top + 4, width + 4, 1, PALETTE.white);
+  r(x, top + 12, width + 4, 3, PALETTE.cream);
+  r(x, top + 12, width + 4, 1, PALETTE.white);
+}
+
+/**
+ * 房子：按年代换代，且**农村不跟着城市化**——那年农村盖的仍是砖房，
+ * 不该出现三层楼（v2 之前 1998 年后连农村都变成了多层楼）。
+ */
+function building(r: Rect, year: number, urban: boolean, x: number, groundY: number): void {
+  const raw = propsForYear(year).find((p) => p.slot === 'building')?.id ?? 'earth';
+  const id = !urban && (raw === 'midrise' || raw === 'tower') ? 'brick' : raw;
+
+  if (id === 'tower') {
+    r(x, groundY - 104, 112, 104, PALETTE.wallDark);
+    r(x, groundY - 104, 112, 4, PALETTE.gray);
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 4; col++) {
+        r(x + 9 + col * 24, groundY - 96 + row * 13, 15, 7, PALETTE.glass);
+        r(x + 9 + col * 24, groundY - 96 + row * 13, 15, 1, PALETTE.gray);
+      }
+    }
+    r(x + 42, groundY - 18, 28, 18, PALETTE.frame);
+    return;
+  }
+
+  if (id === 'midrise') {
+    r(x, groundY - 74, 108, 74, PALETTE.wall);
+    r(x - 2, groundY - 78, 112, 5, PALETTE.wallDark);
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        r(x + 10 + col * 31, groundY - 66 + row * 20, 18, 12, PALETTE.glass);
+        r(x + 10 + col * 31, groundY - 66 + row * 20, 18, 1, PALETTE.frame);
+      }
+    }
+    r(x + 40, groundY - 22, 24, 22, PALETTE.frame);
+    return;
+  }
+
+  // 土坯 / 砖房：坡屋顶 + 院门
+  const wallColor = id === 'brick' ? PALETTE.brick : PALETTE.wall;
+  const wallShade = id === 'brick' ? PALETTE.roofDark : PALETTE.wallDark;
+  const w = 104;
+  const bodyTop = groundY - 62;
+  r(x, bodyTop, w, 62, wallColor);
+  r(x, bodyTop, w, 3, wallShade);
+  r(x + 99, bodyTop, 5, 62, wallShade);
+
+  // 屋顶：三级台阶近似的人字顶
+  const roofColor = id === 'brick' ? PALETTE.roof : PALETTE.roofDark;
+  r(x - 8, bodyTop - 6, w + 16, 6, roofColor);
+  r(x - 2, bodyTop - 12, w + 4, 6, roofColor);
+  r(x + 10, bodyTop - 18, w - 20, 6, roofColor);
+  r(x + 24, bodyTop - 24, w - 48, 6, roofColor);
+  // 瓦缝
+  for (let i = 0; i < 9; i++) r(x + 4 + i * 12, bodyTop - 6, 1, 3, PALETTE.roofDark);
+  // 烟囱
+  r(x + 76, bodyTop - 34, 10, 12, PALETTE.brick);
+  r(x + 75, bodyTop - 35, 12, 2, PALETTE.roofDark);
+
+  windowPane(r, x + 12, bodyTop + 16, 22, 18);
+  windowPane(r, x + 68, bodyTop + 16, 22, 18);
+  // 门
+  r(x + 42, groundY - 26, 22, 26, PALETTE.frame);
+  r(x + 44, groundY - 24, 18, 24, PALETTE.door);
+  r(x + 46, groundY - 22, 14, 8, PALETTE.wood);
+}
+
+function streetProp(r: Rect, year: number, groundY: number): void {
+  const id = propsForYear(year).find((p) => p.slot === 'street')?.id ?? 'dirt';
+  if (id === 'lamp') {
+    r(24, groundY - 50, 3, 50, PALETTE.grayDark);
+    r(20, groundY - 53, 11, 4, PALETTE.gray);
+    r(29, groundY - 51, 5, 3, PALETTE.lampLight);
+  }
+}
+
+/** 电线杆 + 下垂的电线 */
+function powerPole(r: Rect, x: number, groundY: number): void {
+  const top = groundY - 46;
+  r(x, top, 2, 46, PALETTE.woodDark);
+  r(x - 6, top + 4, 14, 2, PALETTE.woodDark);
+  r(x - 4, top + 1, 2, 3, PALETTE.cream);
+  r(x + 4, top + 1, 2, 3, PALETTE.cream);
+  // 电线：以杆顶为最高点向两边下垂
+  for (let dx = -150; dx <= 150; dx++) {
+    const sag = Math.floor(((Math.abs(dx) / 150) ** 2) * 7);
+    r(x + dx, top + 5 + sag, 1, 1, PALETTE.grayDark);
+  }
+}
+
+/** 背景路人：比主角小一号的简笔小人，只为让画面里有生活气 */
+function bystander(r: Rect, x: number, groundY: number, shirt: string, skin: string, hair: string): void {
+  r(x + 1, groundY - 13, 5, 2, hair);
+  r(x + 2, groundY - 11, 3, 3, skin);
+  r(x + 1, groundY - 8, 5, 5, shirt);
+  r(x + 1, groundY - 3, 2, 3, PALETTE.navy);
+  r(x + 4, groundY - 3, 2, 3, PALETTE.navy);
+}
+
+function vehicle(r: Rect, year: number, x: number, groundY: number): void {
   const id = propsForYear(year).find((p) => p.slot === 'vehicle')?.id ?? 'bike';
   if (id === 'bike') {
-    r(x, y + 20, 4, 24, PALETTE.grayDark);
-    r(x + 40, y + 20, 4, 24, PALETTE.grayDark);
-    r(x, y + 16, 44, 6, PALETTE.grayDark);
-    r(x + 16, y + 6, 12, 10, PALETTE.red);
+    disc(r, x + 4, groundY - 4, 4, PALETTE.outline);
+    disc(r, x + 22, groundY - 4, 4, PALETTE.outline);
+    r(x + 4, groundY - 14, 18, 2, PALETTE.red);
+    r(x + 12, groundY - 18, 2, 5, PALETTE.grayDark);
+    r(x + 20, groundY - 18, 2, 5, PALETTE.grayDark);
   } else if (id === 'motor') {
-    r(x, y + 22, 16, 20, PALETTE.grayDark);
-    r(x + 34, y + 22, 16, 20, PALETTE.grayDark);
-    r(x - 6, y + 14, 62, 12, PALETTE.navy);
-    r(x + 44, y + 2, 10, 14, PALETTE.gray);
-  } else if (id === 'car') {
-    r(x - 10, y + 14, 90, 26, PALETTE.blueDark);
-    r(x + 10, y + 2, 54, 16, PALETTE.blue);
-    r(x - 4, y + 36, 18, 12, PALETTE.outline);
-    r(x + 56, y + 36, 18, 12, PALETTE.outline);
-  } else {
-    r(x - 10, y + 12, 94, 28, PALETTE.white);
-    r(x + 12, y, 56, 16, PALETTE.glass);
-    r(x - 4, y + 36, 18, 12, PALETTE.outline);
-    r(x + 58, y + 36, 18, 12, PALETTE.outline);
-    r(x + 70, y + 16, 8, 6, PALETTE.lampLight);
+    disc(r, x + 5, groundY - 4, 4, PALETTE.outline);
+    disc(r, x + 24, groundY - 4, 4, PALETTE.outline);
+    r(x + 3, groundY - 12, 24, 6, PALETTE.navy);
+    r(x + 20, groundY - 18, 6, 7, PALETTE.blue);
+  } else if (id === 'car' || id === 'ev') {
+    const body = id === 'ev' ? PALETTE.green : PALETTE.blue;
+    r(x, groundY - 14, 34, 8, body);
+    r(x + 6, groundY - 19, 20, 6, id === 'ev' ? PALETTE.greenDark : PALETTE.blueDark);
+    r(x + 8, groundY - 18, 7, 4, PALETTE.glass);
+    r(x + 17, groundY - 18, 7, 4, PALETTE.glass);
+    disc(r, x + 8, groundY - 5, 3, PALETTE.outline);
+    disc(r, x + 26, groundY - 5, 3, PALETTE.outline);
   }
 }
+
+// ---------------------------------------------------------------- 室外
 
 function drawOutdoor(r: Rect, spec: SceneSpec): void {
-  drawSky(r);
-  r(0, 260, SCENE_W, 60, PALETTE.hill);
-  r(120, 240, 220, 20, PALETTE.hill);
-  r(520, 250, 260, 20, PALETTE.hill);
-  r(0, 300, SCENE_W, 240, PALETTE.grass);
-  r(0, 400, SCENE_W, 140, PALETTE.grassDark);
+  // 天
+  r(0, 0, UW, 38, PALETTE.skyHigh);
+  r(0, 38, UW, 26, PALETTE.skyMid);
+  r(0, 64, UW, 22, PALETTE.skyLow);
 
+  disc(r, 272, 22, 11, PALETTE.sunRing);
+  disc(r, 272, 22, 8, PALETTE.sun);
+
+  cloud(r, 34, 12, 3);
+  cloud(r, 116, 26, 2);
+  cloud(r, 186, 8, 3);
+  cloud(r, 62, 42, 2);
+
+  // 远山：蓝灰两层，和前面的草地拉开纵深。用绿色会像两片草地叠在一起。
+  for (let x = 0; x < UW; x += 40) {
+    disc(r, x + 20, 88, 22, PALETTE.hillFar);
+    disc(r, x + 6, 92, 16, PALETTE.hillFar);
+  }
+  r(0, 88, UW, 20, PALETTE.hillFar);
+  for (let x = 20; x < UW; x += 60) disc(r, x, 100, 20, PALETTE.hillFarDark);
+  r(0, 100, UW, 12, PALETTE.hillFarDark);
+
+  // 草地
+  r(0, 110, UW, 70, PALETTE.grass);
+  r(0, 110, UW, 3, PALETTE.grassDark);
+  // 草地斑块：不只撒点，也铺几块更大的色斑，避免一整片死绿
+  for (let i = 0; i < 7; i++) {
+    disc(r, 20 + i * 46, 128 + (i % 3) * 12, 10 + (i % 3) * 3, PALETTE.grassLight);
+  }
+  for (let i = 0; i < 8; i++) {
+    disc(r, 40 + i * 38, 142 - (i % 4) * 6, 8, PALETTE.grassDark);
+  }
+  for (let i = 0; i < 60; i++) {
+    const gx = (i * 37) % UW;
+    const gy = 118 + ((i * 53) % 34);
+    r(gx, gy, 2, 1, i % 3 === 0 ? PALETTE.grassLight : PALETTE.grassDark);
+  }
+
+  // 土路 / 柏油路
   const street = propsForYear(spec.year).find((p) => p.slot === 'street')?.id ?? 'dirt';
   if (street === 'dirt') {
-    for (let i = 0; i < 10; i++) r(40 + i * 96, 470, 56, 8, PALETTE.brownDark);
+    r(0, 156, UW, 24, PALETTE.dirt);
+    r(0, 156, UW, 2, PALETTE.dirtDark);
+    for (let i = 0; i < 14; i++) r(12 + i * 22, 162 + (i % 3) * 5, 6, 2, PALETTE.dirtDark);
   } else {
-    r(0, 452, SCENE_W, 88, PALETTE.road);
-    for (let i = 0; i < 9; i++) r(30 + i * 110, 492, 54, 6, PALETTE.roadLight);
+    r(0, 156, UW, 24, PALETTE.road);
+    r(0, 156, UW, 2, PALETTE.roadLight);
+    for (let i = 0; i < 10; i++) r(10 + i * 32, 168, 14, 2, PALETTE.roadLight);
   }
 
-  if (spec.scene === 'yard') {
-    r(760, 330, 20, 130, PALETTE.brownDark);
-    r(700, 300, 140, 30, PALETTE.brown);
-    for (let i = 0; i < 4; i++) r(80 + i * 44, 360, 12, 100, PALETTE.brownDark);
-    r(60, 330, 240, 30, PALETTE.wallDark);
-  } else if (spec.scene === 'factory') {
-    r(60, 200, 120, 60, PALETTE.grayDark);
-    r(70, 140, 24, 60, PALETTE.gray);
-    r(80, 100, 8, 40, PALETTE.grayDark);
-    for (let i = 0; i < 3; i++) r(80, 90 - i * 18, 8, 8, PALETTE.wallDark);
+  building(r, spec.year, spec.urban, 198, 152);
+  fence(r, 108, 152, 82);
+  tree(r, 52, 152, 40);
+  bush(r, 314, 152, 7);
+  bush(r, 176, 152, 5);
+  streetProp(r, spec.year, 152);
+  vehicle(r, spec.year, 140, 152);
+
+  // 电线杆：农村画面里最有年代感的一根，线要有下垂弧度
+  powerPole(r, 172, 152);
+
+  // 背景里的路人：一院子只有自己三个人，画面是空的。
+  // 位置避开主角（143）、树（52–92）和栅栏（108–190）。
+  const bystanders: [number, string, string, string][] = [
+    [12, PALETTE.red, PALETTE.skin, PALETTE.hairDark],
+    [26, PALETTE.blue, PALETTE.skin, PALETTE.hairDark],
+    [278, PALETTE.purple, PALETTE.skin, PALETTE.hairDark],
+    [294, PALETTE.green, PALETTE.skin, PALETTE.hairBrown],
+    [308, PALETTE.warm, PALETTE.skin, PALETTE.hairBrown],
+  ];
+  for (const [bx, shirt, skin, hair] of bystanders) {
+    bystander(r, bx, 152, shirt, skin, hair);
   }
 
-  drawBuilding(r, spec.year, 690);
-  drawVehicle(r, spec.year, 150, 392);
+  // 草丛：沿草地与路的交界撒一层，给画面一点纵深
+  for (let i = 0; i < 22; i++) {
+    const gx = 4 + i * 15 + (i % 4) * 3;
+    if (gx > 100 && gx < 200) continue;
+    r(gx, 150, 1, 3, PALETTE.grassDark);
+    r(gx + 2, 149, 1, 4, PALETTE.grassLight);
+    r(gx + 4, 151, 1, 2, PALETTE.grassDark);
+  }
+
+  if (spec.scene === 'factory') {
+    r(296, 78, 16, 74, PALETTE.grayDark);
+    r(294, 74, 20, 5, PALETTE.gray);
+    for (let i = 0; i < 3; i++) disc(r, 304, 66 - i * 9, 5 + i, PALETTE.cloud);
+    r(20, 92, 26, 20, PALETTE.wallDark);
+    r(16, 86, 34, 7, PALETTE.roof);
+  }
 }
 
+// ---------------------------------------------------------------- 室内
+
 function drawIndoor(r: Rect, spec: SceneSpec): void {
-  r(0, 0, SCENE_W, 400, PALETTE.wall);
-  r(0, 380, SCENE_W, 160, PALETTE.floor);
-  r(0, 376, SCENE_W, 8, PALETTE.wallDark);
+  // 墙
+  r(0, 0, UW, 132, PALETTE.wall);
+  r(0, 0, UW, 5, PALETTE.wallDark);
+  for (let x = 0; x < UW; x += 24) r(x, 5, 1, 123, PALETTE.wallDark);
+
+  // 地板
+  r(0, 132, UW, 48, PALETTE.wood);
+  r(0, 128, UW, 5, PALETTE.woodDark);
+  for (let x = 0; x < UW; x += 34) r(x, 137, 1, 43, PALETTE.woodDark);
+  for (let y = 146; y < 180; y += 11) r(0, y, UW, 1, PALETTE.woodDark);
+
+  // 地毯（角色站在上面，避免"浮"在木地板上）
+  r(104, 158, 84, 16, PALETTE.cream);
+  r(104, 158, 84, 2, PALETTE.pink);
+  r(104, 172, 84, 2, PALETTE.pink);
+  r(108, 162, 76, 8, PALETTE.pink);
 
   // 窗
-  r(120, 90, 220, 160, PALETTE.wallDark);
-  r(132, 102, 196, 136, PALETTE.glass);
-  r(226, 102, 8, 136, PALETTE.wallDark);
-  r(132, 166, 196, 8, PALETTE.wallDark);
+  const wx = 30;
+  const wy = 30;
+  const ww = 72;
+  const wh = 58;
+  r(wx - 4, wy - 4, ww + 8, wh + 8, PALETTE.frame);
+  r(wx, wy, ww, wh, PALETTE.skyMid);
+  r(wx, wy, ww, Math.round(wh * 0.55), PALETTE.skyHigh);
+  disc(r, wx + 54, wy + 13, 6, PALETTE.sun);
+  cloud(r, wx + 8, wy + 10, 2);
+  r(wx + Math.round(ww / 2) - 1, wy, 3, wh, PALETTE.frame);
+  r(wx, wy + Math.round(wh / 2) - 1, ww, 3, PALETTE.frame);
+  // 窗帘
+  r(wx - 9, wy - 8, 10, wh + 16, PALETTE.pink);
+  r(wx + ww - 1, wy - 8, 10, wh + 16, PALETTE.pink);
+  r(wx - 9, wy - 10, ww + 20, 3, PALETTE.woodDark);
 
-  // 电视（按年代换代）
+  // 挂钟
+  disc(r, 210, 34, 9, PALETTE.frame);
+  disc(r, 210, 34, 7, PALETTE.cream);
+  r(210, 29, 1, 5, PALETTE.outline);
+  r(210, 34, 4, 1, PALETTE.outline);
+
+  // 墙上两幅：一张全家福、一张奖状。
+  // v1 画的是"一小块草 + 两条灰线"，在 390 宽的手机上完全读不出是什么。
+  // 现在按中国家庭墙上真正会挂的东西画，尺寸也放大到能辨认。
+  // —— 全家福：三个人，中间那个高一点
+  r(124, 26, 38, 28, PALETTE.frame);
+  r(127, 29, 32, 22, PALETTE.skyLow);
+  r(127, 44, 32, 7, PALETTE.grass);
+  const fam = [
+    { x: 131, h: 12 },
+    { x: 138, h: 15 },
+    { x: 147, h: 12 },
+  ];
+  for (const p of fam) {
+    // 头
+    r(p.x, 50 - p.h - 4, 4, 4, PALETTE.skin);
+    r(p.x - 1, 50 - p.h - 5, 6, 2, PALETTE.hairDark);
+    // 身子
+    r(p.x - 1, 50 - p.h, 6, p.h, p.h > 13 ? PALETTE.red : PALETTE.blue);
+  }
+  // —— 奖状：红边、红头、右下角一枚章
+  r(124, 58, 38, 26, PALETTE.redDark);
+  r(126, 60, 34, 22, PALETTE.cream);
+  r(129, 63, 24, 3, PALETTE.redDark);
+  r(129, 69, 28, 1, PALETTE.gray);
+  r(129, 72, 22, 1, PALETTE.gray);
+  r(150, 74, 7, 6, PALETTE.red);
+  r(152, 76, 3, 2, PALETTE.cream);
+
+  // 电视 + 电视柜（教室没有电视，换成黑板）
   const tv = propsForYear(spec.year).find((p) => p.slot === 'screen');
-  if (tv) {
+  if (spec.scene === 'classroom') {
+    // 黑板 + 粉笔字 + 粉笔槽
+    r(214, 44, 96, 56, PALETTE.frame);
+    r(218, 48, 88, 48, '#3f5d4a');
+    r(222, 54, 34, 2, '#dde6dd');
+    r(222, 62, 52, 2, '#dde6dd');
+    r(222, 70, 26, 2, '#dde6dd');
+    r(222, 78, 42, 2, '#dde6dd');
+    r(218, 96, 88, 3, PALETTE.woodDark);
+    // 讲台
+    r(232, 116, 60, 14, PALETTE.wood);
+    r(232, 116, 60, 2, PALETTE.woodDark);
+  } else if (tv) {
     if (tv.id === 'tv-bw') {
-      r(700, 200, 130, 110, PALETTE.grayDark);
-      r(712, 212, 106, 78, PALETTE.gray);
-      r(740, 310, 50, 14, PALETTE.outline);
+      r(232, 96, 44, 34, PALETTE.woodDark);
+      r(236, 100, 36, 24, PALETTE.grayDark);
+      r(240, 104, 28, 16, PALETTE.gray);
+      r(246, 130, 16, 4, PALETTE.woodDark);
     } else if (tv.id === 'tv-color') {
-      r(690, 190, 150, 120, PALETTE.grayDark);
-      r(700, 200, 130, 90, PALETTE.hill);
-      r(730, 310, 60, 16, PALETTE.outline);
+      r(228, 94, 52, 36, PALETTE.grayDark);
+      r(232, 98, 44, 26, PALETTE.navy);
+      r(236, 102, 36, 18, PALETTE.blue);
+      r(246, 130, 16, 4, PALETTE.grayDark);
     } else if (tv.id === 'tv-lcd') {
-      r(680, 170, 190, 120, PALETTE.outline);
-      r(690, 180, 170, 100, PALETTE.navy);
-      r(760, 290, 30, 16, PALETTE.outline);
+      r(224, 92, 60, 34, PALETTE.outline);
+      r(227, 95, 54, 28, PALETTE.navy);
+      r(232, 100, 28, 18, PALETTE.blueDark);
+      r(248, 126, 12, 4, PALETTE.outline);
     } else {
-      r(660, 120, 230, 136, PALETTE.outline);
-      r(668, 128, 214, 120, PALETTE.navy);
+      r(218, 48, 72, 42, PALETTE.outline);
+      r(222, 52, 64, 34, PALETTE.navy);
     }
+    // 柜子
+    r(220, 130, 72, 12, PALETTE.woodDark);
+    r(224, 133, 30, 7, PALETTE.wood);
+    r(258, 133, 30, 7, PALETTE.wood);
   }
 
-  // 桌子
-  r(420, 380, 200, 12, PALETTE.brown);
-  r(436, 392, 12, 70, PALETTE.brownDark);
-  r(592, 392, 12, 70, PALETTE.brownDark);
+  // 矮桌（靠左，避开站在中间的玩家）
+  r(64, 150, 60, 5, PALETTE.woodDark);
+  r(70, 155, 4, 20, PALETTE.woodDark);
+  r(114, 155, 4, 20, PALETTE.woodDark);
+  r(72, 142, 9, 8, PALETTE.cream); // 书
+  r(83, 144, 10, 6, PALETTE.redDark);
+  r(98, 140, 7, 10, PALETTE.green); // 瓶
+  disc(r, 110, 142, 4, PALETTE.lampLight);
 
-  // 灯
-  r(500, 0, 6, 60, PALETTE.grayDark);
-  r(470, 56, 66, 18, PALETTE.lampLight);
+  // 吊灯：灯线 + 梯形灯罩 + 一点灯芯（不画半透明光晕，缩到手机上会变成一团脏影）
+  r(288, 0, 2, 15, PALETTE.grayDark);
+  r(281, 15, 16, 3, PALETTE.lampLight);
+  r(283, 18, 12, 2, PALETTE.sun);
+  r(287, 20, 4, 2, PALETTE.white);
+
+  // 绿植
+  r(302, 148, 9, 14, PALETTE.brownDark);
+  disc(r, 306, 142, 8, PALETTE.leafDark);
+  disc(r, 302, 138, 6, PALETTE.leaf);
+  disc(r, 310, 139, 5, PALETTE.leafLight);
+
+  // 猫（房间里有活物，画面才不像样板间）
+  if (spec.year >= 1990) {
+    disc(r, 196, 166, 5, PALETTE.warm);
+    disc(r, 192, 161, 4, PALETTE.warm);
+    r(189, 157, 2, 3, PALETTE.warm);
+    r(194, 157, 2, 3, PALETTE.warm);
+    r(191, 161, 1, 1, PALETTE.eye);
+    r(194, 161, 1, 1, PALETTE.eye);
+    r(200, 168, 6, 1, PALETTE.warm);
+  }
+}
+
+/** 年代色调：整屏只压一层很淡的暖色，绝不压暗（v1 的教训） */
+function eraOverlay(r: Rect, year: number): void {
+  if (year <= 1985) return r(0, 0, UW, UH, 'rgba(214,168,96,0.09)');
+  if (year <= 1999) return r(0, 0, UW, UH, 'rgba(224,184,120,0.05)');
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void {
   const r = makeRect(ctx);
   const mode = SCENES.find((s) => s.id === spec.scene)?.mode ?? 'outdoor';
   ctx.clearRect(0, 0, SCENE_W, SCENE_H);
+
   if (mode === 'outdoor') drawOutdoor(r, spec);
   else drawIndoor(r, spec);
 
-  const scale = 3;
-  const x = spec.scene === 'classroom' ? 300 : 430;
-  const feet = mode === 'outdoor' ? 470 : 466;
-  for (const c of spec.companions ?? []) {
+  eraOverlay(r, spec.year);
+
+  // 室外基线要比"地平线"再往前几格：v1 直接踩在地平线上，
+  // 腿的下半截被栅栏和草沿切掉，人看起来像跪着。
+  const feetUnits = mode === 'outdoor' ? 165 : 170;
+  const feetPx = feetUnits * U;
+  const xPx = spec.scene === 'classroom' ? 300 : 430;
+
+  const place = (sprite: SpriteSpec, px: number): void => {
+    // 接地阴影：两段叠加，近似一个扁椭圆
+    ctx.fillStyle = 'rgba(61,47,36,0.15)';
+    ctx.fillRect(Math.round(px - 27), feetPx - 4, 54, 5);
+    ctx.fillRect(Math.round(px - 19), feetPx - 6, 38, 3);
+
     ctx.save();
-    ctx.translate(c.x, feet - 64 * scale);
-    ctx.scale(scale, scale);
-    drawCharacter(ctx, c.sprite);
+    ctx.translate(px, feetPx - SPRITE_FEET * SPRITE_SCALE);
+    ctx.scale(SPRITE_SCALE, SPRITE_SCALE);
+    drawCharacter(ctx, sprite);
     ctx.restore();
-  }
-  ctx.save();
-  ctx.translate(x, feet - 64 * scale);
-  ctx.scale(scale, scale);
-  drawCharacter(ctx, spec.sprite);
-  ctx.restore();
+  };
+
+  for (const c of spec.companions ?? []) place(c.sprite, c.x);
+  place(spec.sprite, xPx);
 }
