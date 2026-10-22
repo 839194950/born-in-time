@@ -137,12 +137,12 @@ export function renderEndingCard(
   const { birth, ending, death, snapshots } = data;
   const a = ending.aggregate;
 
-  // 与 v3 界面同源：纸底偏中性白，强调色用同一个低饱和深红。
-  // 原来这张卡是米黄 + 砖红，和页面的浅灰白 + 深红并排放会像两个产品。
-  const INK = '#2b2b29';
-  const MUTED = '#8b8b86';
-  const PAPER = '#f6f6f4';
-  const ACCENT = '#8c2f39';
+  // 与界面同源（v3 视觉身份「老挂历」）：暖纸底 + 砖红 + 宋体，
+  // 右上角盖一枚「生逢其时」方印——这是本作的卡，不是通用模板。
+  const INK = '#2f2a24';
+  const MUTED = '#8b7d63';
+  const PAPER = '#f7f1de';
+  const ACCENT = '#a63b30';
   const SERIF = '"Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif';
   const SANS = '"PingFang SC", "Microsoft YaHei", sans-serif';
 
@@ -150,12 +150,32 @@ export function renderEndingCard(
   ctx.scale(scale, scale);
   ctx.textBaseline = 'top';
 
-  // 纸底 + 内框
+  // 纸底 + 奖状式双框（外粗内细）
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#e3d8c3';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#c9b586';
+  ctx.lineWidth = 3;
   ctx.strokeRect(44, 44, W - 88, H - 88);
+  ctx.strokeStyle = '#d9c9a1';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(58, 58, W - 116, H - 116);
+
+  // 品牌方印：右上角，略歪 8°，白字 2×2「生逢其时」
+  ctx.save();
+  ctx.translate(W - PAD - 52, 118);
+  ctx.rotate((-8 * Math.PI) / 180);
+  ctx.fillStyle = ACCENT;
+  ctx.fillRect(-52, -52, 104, 104);
+  ctx.strokeStyle = 'rgba(253,246,227,0.55)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-42, -42, 84, 84);
+  ctx.fillStyle = '#fdf6e3';
+  ctx.font = `700 38px ${SERIF}`;
+  ctx.fillText('生', -36, -38);
+  ctx.fillText('逢', 4, -38);
+  ctx.fillText('其', -36, 6);
+  ctx.fillText('时', 4, 6);
+  ctx.restore();
 
   // ---- L1 开局三件套 ----
   ctx.fillStyle = MUTED;

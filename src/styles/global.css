@@ -2566,3 +2566,148 @@ body {
   line-height: 1.75;
   color: #55554f;
 }
+
+
+/* =====================================================================
+   v3 视觉身份层「老挂历 · 年代旧照片」
+   本作的脸：中国家庭墙上的老挂历与旧相册——暖纸、宋体、朱红印章、
+   印刷色。本节只做身份覆盖，不动 v2 的版式规则（版式是功能，身份是脸）。
+   ===================================================================== */
+
+/* 纸面：给整页铺一层极淡的纤维斑点，像挂历用纸 */
+body {
+  background-image: radial-gradient(rgba(122, 96, 52, 0.055) 1px, transparent 1.1px);
+  background-size: 5px 5px;
+}
+
+::selection {
+  background: rgba(166, 59, 48, 0.18);
+}
+
+/* 宋体大字：标题、卡名、年份一律走印刷体，和无衬线极简风拉开距离 */
+h1,
+.card-title,
+.identity-name,
+.year-number,
+.play-year {
+  font-family: var(--serif);
+}
+
+.birth-head h1 {
+  letter-spacing: 0.1em;
+}
+
+.card-title {
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.year-number {
+  letter-spacing: 0.02em;
+}
+
+/* 出生卡：顶上一道朱红，像挂历页的眉头 */
+.birth-card {
+  border-top: 3px solid var(--accent);
+}
+
+/* 顶部时钟 = 日历牌：白纸小牌，朱红压头，年份是宋体大字 */
+.play-head {
+  background: rgba(246, 240, 228, 0.96);
+}
+
+.play-clock {
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 3px;
+  padding: 3px 10px 5px;
+}
+
+.play-year {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+/* 五维改印刷色：黛绿 / 靛蓝 / 赭金 / 朱红 / 紫檀，告别糖果色 */
+.stat-track {
+  background: #ece3cb;
+  box-shadow: inset 0 0 0 1px #ddd0ab;
+}
+
+.stat-health { background: #4e7a51; }
+.stat-ability { background: #3e5f7a; }
+.stat-wealth { background: #a87c1e; }
+.stat-family { background: #a63b30; }
+.stat-happiness { background: #77608f; }
+
+/* 主按钮用朱红（黑按钮是通用极简风的标配，不是我们的）。
+   出生屏/结局屏有更高优先级的旧规则把主按钮压成墨色，这里同级覆盖。 */
+.btn-primary,
+.birth-screen .btn-primary,
+.ending-screen .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fdf6e3;
+}
+
+.btn-primary:hover,
+.birth-screen .btn-primary:hover,
+.ending-screen .btn-primary:hover {
+  background: #8c2f24;
+  border-color: #8c2f24;
+}
+
+/* 身份证卡右下角盖一枚小印：朱红方印、白字、略歪——手盖的才有这一下 */
+.identity-card {
+  position: relative;
+}
+
+.identity-card::after {
+  content: '生';
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fdf6e3;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: 4px;
+  transform: rotate(-6deg);
+  opacity: 0.92;
+  box-shadow: inset 0 0 0 2px rgba(253, 246, 227, 0.35);
+  pointer-events: none;
+}
+
+/* 场景框 = 相册里的照片：白边 + 细框 + 一点投影 */
+.scene-wrap {
+  border: 1px solid #d9c9a1;
+  border-radius: 2px;
+  box-shadow: 0 0 0 5px #fffdf8, 0 0 0 6px #ddd0ab, 0 10px 24px rgba(87, 66, 32, 0.12);
+}
+
+.scene-caption {
+  font-family: var(--serif);
+  letter-spacing: 0.06em;
+}
+
+/* 主场景在卡里是满幅贴边的（v2 的版式决定），只把底边换成相框线 */
+.scene-card .scene-wrap {
+  border-bottom: 2px solid #d9c9a1;
+}
+
+/* 卡片描边统一暖一号 */
+.card {
+  border-color: #ded1ae;
+}
+
+/* 今年的重心：选中态用朱红描边 + 极淡红底，和日历牌呼应 */
+.focus-btn.is-active {
+  border-color: var(--accent);
+  background: rgba(166, 59, 48, 0.05);
+}

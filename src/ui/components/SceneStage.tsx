@@ -107,8 +107,9 @@ function companionsFor(
   if (age <= 14) {
     const father = alive.find((m) => m.role === 'father');
     const mother = alive.find((m) => m.role === 'mother');
-    if (father) out.push({ sprite: { stage: 'work', gender: 'male', outfit: 'farm', age: year - father.birthYear, health: 70, happiness: 60 }, x: 250 });
-    if (mother) out.push({ sprite: { stage: 'work', gender: 'female', outfit: 'casual', age: year - mother.birthYear, health: 70, happiness: 60 }, x: 640 });
+    // 家人要"围"在主角身边，不是隔着一条街排排站：父 330 / 主角 430 / 母 525
+    if (father) out.push({ sprite: { stage: 'work', gender: 'male', outfit: 'farm', age: year - father.birthYear, health: 70, happiness: 60 }, x: 330 });
+    if (mother) out.push({ sprite: { stage: 'work', gender: 'female', outfit: 'casual', age: year - mother.birthYear, health: 70, happiness: 60 }, x: 525 });
     return out;
   }
   const spouse = alive.find((m) => m.role === 'spouse');
@@ -116,7 +117,7 @@ function companionsFor(
     const spouseAge = year - spouse.birthYear;
     out.push({
       sprite: { stage: stageOf(spouseAge), gender: gender === 'male' ? 'female' : 'male', outfit: 'casual', age: spouseAge, health: 70, happiness: 60 },
-      x: 620,
+      x: 540,
     });
   }
   const child = alive.find((m) => m.role === 'child');
@@ -125,7 +126,7 @@ function companionsFor(
     if (childAge >= 0 && childAge <= 22) {
       out.push({
         sprite: { stage: stageOf(childAge), gender: 'male', outfit: 'school', age: childAge, health: 80, happiness: 70 },
-        x: 540,
+        x: 345,
       });
     }
   }

@@ -44,6 +44,18 @@ function disc(r: Rect, cx: number, cy: number, radius: number, color: string): v
   }
 }
 
+/** 抖动过渡：两种颜色棋盘交错一行——像素画里代替渐变的标准手法，
+ *  用来把天空的三条硬色带缝起来，避免"色块贴纸"感 */
+function ditherBand(r: Rect, y: number, rows: number, colorA: string, colorB: string): void {
+  for (let row = 0; row < rows; row++) {
+    const density = (row + 1) / (rows + 1); // B 色占比从上到下递增
+    for (let x = 0; x < UW; x++) {
+      const cell = ((x * 7 + row * 13) % 4) / 4;
+      r(x, y + row, 1, 1, cell < density ? colorB : colorA);
+    }
+  }
+}
+
 /** 云：平底 + 两三个圆顶，底部只留一线极淡的影（不画"笑脸"，否则像动物头） */
 function cloud(r: Rect, x: number, y: number, k: number): void {
   disc(r, x + k * 2, y + k * 0.6, k * 2.2, PALETTE.cloud);
@@ -140,14 +152,43 @@ function building(r: Rect, year: number, urban: boolean, x: number, groundY: num
   r(x, bodyTop, w, 3, wallShade);
   r(x + 99, bodyTop, 5, 62, wallShade);
 
-  // 屋顶：三级台阶近似的人字顶
-  const roofColor = id === 'brick' ? PALETTE.roof : PALETTE.roofDark;
+  // 墙面肌理：平涂一堵墙是"简陋"最大的来源，给它砌法和岁月
+  if (id === 'brick') {
+    // 砖缝：横线每 4 格一行，竖缝逐行错半块
+    for (let ry = bodyTop + 4; ry < groundY - 2; ry += 4) {
+      r(x + 1, ry, w - 2, 1, PALETTE.brickDark);
+      const off = ((ry - bodyTop) / 4) % 2 === 0 ? 0 : 7;
+      for (let bx = x + 6 + off; bx < x + w - 4; bx += 14) r(bx, ry + 1, 1, 3, PALETTE.brickDark);
+    }
+    // 向阳面高光砖：零星几块亮砖，破掉整面一个色
+    for (let i = 0; i < 7; i++) r(x + 8 + ((i * 31) % 88), bodyTop + 6 + ((i * 17) % 44), 6, 3, PALETTE.brickLight);
+  } else if (id === 'earth') {
+    // 土坯墙：横向抹痕 + 底部返潮的深色带 + 两道裂纹
+    for (let ry = bodyTop + 7; ry < groundY - 8; ry += 8) r(x + 2, ry, w - 6, 1, PALETTE.wallDark);
+    r(x, groundY - 9, w, 9, PALETTE.woodDark);
+    r(x, groundY - 9, w, 1, PALETTE.wood);
+    r(x + 18, bodyTop + 14, 1, 12, PALETTE.woodDark);
+    r(x + 19, bodyTop + 22, 1, 8, PALETTE.woodDark);
+    r(x + 84, bodyTop + 30, 1, 10, PALETTE.woodDark);
+  }
+  // 房基接地影：房子不再像贴在草地上
+  r(x - 3, groundY - 1, w + 6, 2, 'rgba(61,47,36,0.13)');
+
+  // 屋顶：三级台阶近似的人字顶。砖房是红瓦，土坯房是旧灰瓦——
+  // 1965 年的土坯房顶一层鲜红瓦，年代感就穿帮了
+  const roofColor = id === 'brick' ? PALETTE.roof : PALETTE.woodDark;
+  const seamColor = id === 'brick' ? PALETTE.roofDark : PALETTE.brownDark;
   r(x - 8, bodyTop - 6, w + 16, 6, roofColor);
   r(x - 2, bodyTop - 12, w + 4, 6, roofColor);
   r(x + 10, bodyTop - 18, w - 20, 6, roofColor);
   r(x + 24, bodyTop - 24, w - 48, 6, roofColor);
-  // 瓦缝
-  for (let i = 0; i < 9; i++) r(x + 4 + i * 12, bodyTop - 6, 1, 3, PALETTE.roofDark);
+  // 瓦缝：每一级台阶都刻，竖缝错开才像瓦
+  for (let i = 0; i < 9; i++) r(x + 4 + i * 12, bodyTop - 6, 1, 4, seamColor);
+  for (let i = 0; i < 8; i++) r(x + 8 + i * 12, bodyTop - 12, 1, 4, seamColor);
+  for (let i = 0; i < 6; i++) r(x + 16 + i * 12, bodyTop - 18, 1, 4, seamColor);
+  for (let i = 0; i < 4; i++) r(x + 30 + i * 12, bodyTop - 24, 1, 4, seamColor);
+  // 屋脊高光
+  r(x + 24, bodyTop - 24, w - 48, 1, id === 'brick' ? PALETTE.brickLight : PALETTE.wood);
   // 烟囱
   r(x + 76, bodyTop - 34, 10, 12, PALETTE.brick);
   r(x + 75, bodyTop - 35, 12, 2, PALETTE.roofDark);
@@ -219,10 +260,12 @@ function vehicle(r: Rect, year: number, x: number, groundY: number): void {
 // ---------------------------------------------------------------- 室外
 
 function drawOutdoor(r: Rect, spec: SceneSpec): void {
-  // 天
+  // 天：三段色 + 抖动缝合，不留硬分界
   r(0, 0, UW, 38, PALETTE.skyHigh);
   r(0, 38, UW, 26, PALETTE.skyMid);
   r(0, 64, UW, 22, PALETTE.skyLow);
+  ditherBand(r, 36, 4, PALETTE.skyHigh, PALETTE.skyMid);
+  ditherBand(r, 62, 4, PALETTE.skyMid, PALETTE.skyLow);
 
   disc(r, 272, 22, 11, PALETTE.sunRing);
   disc(r, 272, 22, 8, PALETTE.sun);
@@ -263,6 +306,11 @@ function drawOutdoor(r: Rect, spec: SceneSpec): void {
     r(0, 156, UW, 24, PALETTE.dirt);
     r(0, 156, UW, 2, PALETTE.dirtDark);
     for (let i = 0; i < 14; i++) r(12 + i * 22, 162 + (i % 3) * 5, 6, 2, PALETTE.dirtDark);
+    // 车辙：两条断续的深色长线，土路才有"被走过"的感觉
+    for (let x = 0; x < UW; x += 9) {
+      if ((x / 9) % 3 !== 2) r(x, 166, 6, 1, PALETTE.dirtDark);
+      if ((x / 9) % 4 !== 1) r(x, 174, 6, 1, PALETTE.dirtDark);
+    }
   } else {
     r(0, 156, UW, 24, PALETTE.road);
     r(0, 156, UW, 2, PALETTE.roadLight);
@@ -271,6 +319,9 @@ function drawOutdoor(r: Rect, spec: SceneSpec): void {
 
   building(r, spec.year, spec.urban, 198, 152);
   fence(r, 108, 152, 82);
+  // 树冠投影：扁一团压在草地上，树才算"长在地上"
+  disc(r, 58, 151, 17, 'rgba(61,90,36,0.16)');
+  disc(r, 52, 151, 11, 'rgba(61,90,36,0.12)');
   tree(r, 52, 152, 40);
   bush(r, 314, 152, 7);
   bush(r, 176, 152, 5);
@@ -283,14 +334,11 @@ function drawOutdoor(r: Rect, spec: SceneSpec): void {
   // 背景里的路人：一院子只有自己三个人，画面是空的。
   // 位置避开主角（143）、树（52–92）和栅栏（108–190）。
   const bystanders: [number, string, string, string][] = [
-    [12, PALETTE.red, PALETTE.skin, PALETTE.hairDark],
-    [26, PALETTE.blue, PALETTE.skin, PALETTE.hairDark],
-    [278, PALETTE.purple, PALETTE.skin, PALETTE.hairDark],
-    [294, PALETTE.green, PALETTE.skin, PALETTE.hairBrown],
-    [308, PALETTE.warm, PALETTE.skin, PALETTE.hairBrown],
+    [16, PALETTE.blue, PALETTE.skin, PALETTE.hairDark],
+    [286, PALETTE.warm, PALETTE.skin, PALETTE.hairBrown],
   ];
   for (const [bx, shirt, skin, hair] of bystanders) {
-    bystander(r, bx, 152, shirt, skin, hair);
+    bystander(r, bx, 126, shirt, skin, hair);
   }
 
   // 草丛：沿草地与路的交界撒一层，给画面一点纵深
@@ -455,10 +503,40 @@ function drawIndoor(r: Rect, spec: SceneSpec): void {
   }
 }
 
-/** 年代色调：整屏只压一层很淡的暖色，绝不压暗（v1 的教训） */
-function eraOverlay(r: Rect, year: number): void {
-  if (year <= 1985) return r(0, 0, UW, UH, 'rgba(214,168,96,0.09)');
-  if (year <= 1999) return r(0, 0, UW, UH, 'rgba(224,184,120,0.05)');
+/** 确定性杂点：同一帧每次重绘结果一致，避免颗粒闪烁 */
+function grainHash(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * 年代色调 = 旧照片：年份越早，褪色越重、颗粒越粗、四角越暗。
+ * v2 只压一层 0.05 的暖色，玩家根本感知不到"年代在变"；这里分四档，
+ * 并用确定性杂点铺颗粒（早期 300 点、90 年代 120 点、2005 后只剩极淡一层）。
+ * 注意：仍不整屏压暗（v1 的教训不变）——靠褪色与颗粒传达年代，不靠变黑。
+ */
+function eraGrade(r: Rect, year: number): void {
+  if (year <= 1979) r(0, 0, UW, UH, 'rgba(206,164,94,0.17)');
+  else if (year <= 1989) r(0, 0, UW, UH, 'rgba(216,176,106,0.11)');
+  else if (year <= 1999) r(0, 0, UW, UH, 'rgba(224,184,120,0.06)');
+
+  const specks = year <= 1979 ? 300 : year <= 1989 ? 200 : year <= 1999 ? 110 : year <= 2009 ? 40 : 0;
+  for (let i = 0; i < specks; i++) {
+    const gx = Math.floor(grainHash(i * 2) * UW);
+    const gy = Math.floor(grainHash(i * 2 + 1) * UH);
+    r(gx, gy, 1, 1, i % 3 === 0 ? 'rgba(255,246,220,0.10)' : 'rgba(58,42,26,0.07)');
+  }
+
+  // 暗角：只给 1989 年之前，四角逐级压三层，像老照片的边缘氧化
+  if (year <= 1989) {
+    const v = 'rgba(74,52,28,0.055)';
+    r(0, 0, UW, 3, v);
+    r(0, UH - 3, UW, 3, v);
+    r(0, 0, 4, UH, v);
+    r(UW - 4, 0, 4, UH, v);
+    r(0, 3, UW, 2, 'rgba(74,52,28,0.03)');
+    r(0, UH - 5, UW, 2, 'rgba(74,52,28,0.03)');
+  }
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void {
@@ -469,7 +547,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void 
   if (mode === 'outdoor') drawOutdoor(r, spec);
   else drawIndoor(r, spec);
 
-  eraOverlay(r, spec.year);
+  eraGrade(r, spec.year);
 
   // 室外基线要比"地平线"再往前几格：v1 直接踩在地平线上，
   // 腿的下半截被栅栏和草沿切掉，人看起来像跪着。
