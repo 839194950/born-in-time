@@ -58,11 +58,20 @@ export interface PlateDef {
   baseline: number;
 }
 
-const PLATES: Record<string, PlateDef> = {
-  'yard:film': { src: 'assets/plates/yard-film.webp', baseline: 500 },
-  'street:calendar': { src: 'assets/plates/street-calendar.webp', baseline: 508 },
-  'street:digital': { src: 'assets/plates/street-digital.webp', baseline: 498 },
-};
+/** 20 张背景板（plates2 批次，极简扁平风与人物同族）：8 场景 × 可达时代组合，基线先统一 500，实机验图后按张微调 */
+const PLATES: Record<string, PlateDef> = Object.fromEntries(
+  [
+    'yard:film', 'yard:calendar', 'yard:digital', 'street:calendar', 'street:digital',
+    'classroom:film', 'classroom:calendar', 'classroom:digital',
+    'factory:film', 'factory:calendar', 'factory:digital',
+    'rental:film', 'rental:calendar', 'rental:digital',
+    'living:film', 'living:calendar', 'living:digital',
+    'office:calendar', 'office:digital', 'late:digital',
+  ].map((key) => {
+    const [scene, era] = key.split(':');
+    return [key, { src: `assets/plates/${scene}-${era}.webp`, baseline: 500 }];
+  }),
+);
 
 export function plateFor(scene: SceneId, year: number): PlateDef | undefined {
   return PLATES[`${scene}:${eraOfYear(year).id}`];

@@ -31,13 +31,18 @@ for set_id, stages in SETS.items():
     for stage in stages:
         save_sprite(os.path.join(KEYED, f'{set_id}-{stage}.png'), f'{set_id}-{stage}.webp')
 
-PLATES = {
-    'yard-film': 'media-generation-plate-yard-film-0-7460b47c-abdc-4a51-9810-264ffeecb491.webp',
-    'street-calendar': 'media-generation-plate-street-calendar-0-92f4f6af-f122-4b18-9f47-8d92080da1b6.webp',
-    'street-digital': 'media-generation-plate-street-digital-0-f648d250-a8c9-44eb-85f8-1399d16ebfd7.webp',
-}
-for name, fn in PLATES.items():
-    im = Image.open(os.path.join(ROOT, 'assets-src/plates', fn)).convert('RGB')
+PLATE_STEMS = [
+    'yard-film', 'yard-calendar', 'yard-digital', 'street-calendar', 'street-digital',
+    'classroom-film', 'classroom-calendar', 'classroom-digital',
+    'factory-film', 'factory-calendar', 'factory-digital',
+    'rental-film', 'rental-calendar', 'rental-digital',
+    'living-film', 'living-calendar', 'living-digital',
+    'office-calendar', 'office-digital', 'late-digital',
+]
+for name in PLATE_STEMS:
+    hits = glob.glob(os.path.join(ROOT, 'assets-src/plates2', f'media-generation-plate-{name}-0-*.webp'))
+    assert hits, f'plate missing: {name}'
+    im = Image.open(hits[0]).convert('RGB')
     h = int(im.height * 1440 / im.width)
     im.resize((1440, h), Image.LANCZOS).save(os.path.join(PUB, 'plates', name + '.webp'), 'WEBP', quality=84, method=6)
     print('plate', name, im.size)
