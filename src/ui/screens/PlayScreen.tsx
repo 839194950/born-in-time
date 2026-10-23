@@ -8,6 +8,7 @@ import { simulatePeers } from '../../engine/peers';
 import { CONTINUE_CHOICE_ID, type GameSnapshot } from '../../engine/game';
 import { STAT_KEYS } from '../../engine/types';
 import { STILLS } from '../../data/stills';
+import { eraOfYear, type EraInfo } from '../lib/era';
 import { EventModal } from '../components/EventModal';
 import { Portrait } from '../components/Portrait';
 import { roleFromFlags, SceneStage } from '../components/SceneStage';
@@ -66,6 +67,26 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
   const milestoneId = snapshot.milestoneId;
   const [shownStill, setShownStill] = useState<string | null>(null);
 
+  /* 三时代换代：年份跨过 1990 / 2010 时，整屏换一套视觉（data-era 驱动
+     CSS 变量缓变），并盖一张时代字卡做转场；胶片→挂历多一下暖色闪光。
+     时代只由年份现算，不进存档；开局/读档落在哪个时代就直接是哪个时代。 */
+  const era = eraOfYear(snapshot.year);
+  const prevEraRef = useRef(era.id);
+  const [eraCard, setEraCard] = useState<EraInfo | null>(null);
+  const [eraFlash, setEraFlash] = useState(false);
+  useEffect(() => {
+    const prev = prevEraRef.current;
+    if (prev === era.id) return;
+    prevEraRef.current = era.id;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setEraFlash(prev === 'film' && era.id === 'calendar');
+    setEraCard(era);
+    const t = window.setTimeout(() => setEraCard(null), 2050);
+    return () => window.clearTimeout(t);
+    // era 是 ERAS 常量引用，按 id 触发即可
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [era.id]);
+
   useEffect(() => {
     if (!milestoneId) return;
     setShownStill(milestoneId);
@@ -109,7 +130,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
   }, [snapshot.birth.name, snapshot.seed, snapshot.birth.year]);
 
   return (
-    <main className="screen play-screen">
+    <main className="screen play-screen" data-era={era.id}>
       {/* 顶部工具条：左＝你是谁，右＝怎么放 */}
       <header className="play-head">
         <div className="play-clock">
@@ -210,6 +231,31 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
             </dl>
           </div>
           <p className="identity-hash">{idHash}</p>
+          {/* 原「背景」卡并入身份证下半段（版式重排：九卡减一张） */}
+          <div className="identity-facts">
+            <h2 className="card-title">
+              背景
+              <small>出生时的样子</small>
+            </h2>
+            <dl className="fact-rows">
+              <div>
+                <dt>同年位次</dt>
+                <dd>{`第 ${peerRank} 名 / ${peers.length + 1} 人`}</dd>
+              </div>
+              <div>
+                <dt>家境</dt>
+                <dd>{TIER_LABEL[snapshot.birth.tier]}</dd>
+              </div>
+              <div>
+                <dt>出生时城镇化</dt>
+                <dd>{`${Math.round(snapshot.birth.urbanizationRate * 100)}%`}</dd>
+              </div>
+              <div>
+                <dt>同批人的预期寿命</dt>
+                <dd>{`${Math.round(snapshot.birth.cohortLifeExpectancy)} 岁`}</dd>
+              </div>
+            </dl>
+          </div>
         </section>
 
         <section className="card status-card" aria-label="状态">
@@ -234,30 +280,6 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
           )}
         </section>
 
-        <section className="card facts-card" aria-label="背景">
-          <h2 className="card-title">
-            背景
-            <small>出生时的样子</small>
-          </h2>
-          <dl className="fact-rows">
-            <div>
-              <dt>同年位次</dt>
-              <dd>{`第 ${peerRank} 名 / ${peers.length + 1} 人`}</dd>
-            </div>
-            <div>
-              <dt>家境</dt>
-              <dd>{TIER_LABEL[snapshot.birth.tier]}</dd>
-            </div>
-            <div>
-              <dt>出生时城镇化</dt>
-              <dd>{`${Math.round(snapshot.birth.urbanizationRate * 100)}%`}</dd>
-            </div>
-            <div>
-              <dt>同批人的预期寿命</dt>
-              <dd>{`${Math.round(snapshot.birth.cohortLifeExpectancy)} 岁`}</dd>
-            </div>
-          </dl>
-        </section>
       </div>
 
       {/* 中栏：场景 + 重心 + 人生纪录 */}
@@ -272,6 +294,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
             happiness={snapshot.stats.happiness}
             flags={snapshot.flags}
             family={snapshot.family}
+            seed={snapshot.seed}
           />
           <p className="scene-note">
             {`${snapshot.birth.province}${snapshot.birth.urban ? '城区' : '乡村'}的${sceneName}，家里 ${household} 口人。`}
@@ -390,6 +413,16 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
         />
       )}
 
+      {eraCard && (
+        <div className="era-veil" onClick={() => setEraCard(null)} role="presentation">
+          {eraFlash && <div className="era-flash" />}
+          <div className="era-card-inner">
+            <div className="era-card-name">{eraCard.name}</div>
+            <div className="era-card-years">{eraCard.years}</div>
+          </div>
+        </div>
+      )}
+
       {still && (
         <div className="still" onClick={() => setShownStill(null)} role="presentation">
           {/* 定格画面用「当下这一刻的场景」做底：把人留在原地，只把声音和界面拿走。
@@ -404,6 +437,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
               happiness={snapshot.stats.happiness}
               flags={snapshot.flags}
               family={snapshot.family}
+              seed={snapshot.seed}
               variant="plain"
             />
           </div>

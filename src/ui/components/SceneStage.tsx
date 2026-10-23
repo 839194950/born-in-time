@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { sceneForContext } from '../../data/props';
 import type { FamilyMember, Gender } from '../../engine/types';
+import { onImageReady } from '../lib/assets';
 import { outfitFor, type OutfitRole } from '../lib/pixel';
-import { SCENE_H, SCENE_W, drawScene } from '../lib/scene';
+import { SCENE_H, SCENE_W, drawScene, type CompanionKind } from '../lib/scene';
 
 export interface SceneStageProps {
   year: number;
@@ -13,6 +14,8 @@ export interface SceneStageProps {
   happiness: number;
   flags: readonly string[];
   family?: readonly FamilyMember[];
+  /** 本局种子：决定主角抽哪套生图脸 */
+  seed?: number;
   /** frame = 挂在页面里的带框场景；plain = 当背景用，不要画框和角标 */
   variant?: 'frame' | 'plain';
 }
@@ -38,12 +41,16 @@ export function SceneStage({
   happiness,
   flags,
   family = [],
+  seed = 0,
   variant = 'frame',
 }: SceneStageProps) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const role = roleFromFlags(flags, urban);
   /** 待机呼吸：0 / 1 两帧交替。幅度只有 1px，但两帧之后就不是贴纸了。 */
   const [breath, setBreath] = useState<0 | 1>(0);
+  /** 生图素材是异步加载的：任一图就绪就重绘一次，像素小人随即换成精灵 */
+  const [, setImgTick] = useState(0);
+  useEffect(() => onImageReady(() => setImgTick((t) => t + 1)), []);
 
   useEffect(() => {
     // 尊重 reduced-motion：这类用户看到的是静帧，不是"动画坏了"
@@ -66,10 +73,11 @@ export function SceneStage({
       year,
       urban,
       scene: sceneForContext({ age, urban, role }),
+      seed,
       sprite: { stage: stageOf(age), gender, outfit: outfitFor(age, gender, role), age, health, happiness, breath },
       companions: companionsFor(family, year, age, gender),
     });
-  }, [year, age, gender, urban, health, happiness, role, family, breath]);
+  }, [year, age, gender, urban, health, happiness, role, family, breath, seed]);
 
   return (
     <div className={variant === 'plain' ? 'scene-plain' : 'scene-wrap'}>
@@ -101,15 +109,21 @@ function companionsFor(
   year: number,
   age: number,
   gender: Gender,
-): { sprite: import('../lib/pixel').SpriteSpec; x: number }[] {
+): { sprite: import('../lib/pixel').SpriteSpec; x: number; kind: CompanionKind; age: number }[] {
   const alive = family.filter((m) => m.deathYear === undefined || m.deathYear > year);
-  const out: { sprite: import('../lib/pixel').SpriteSpec; x: number }[] = [];
+  const out: { sprite: import('../lib/pixel').SpriteSpec; x: number; kind: CompanionKind; age: number }[] = [];
   if (age <= 14) {
     const father = alive.find((m) => m.role === 'father');
     const mother = alive.find((m) => m.role === 'mother');
     // 家人要"围"在主角身边，不是隔着一条街排排站：父 330 / 主角 430 / 母 525
-    if (father) out.push({ sprite: { stage: 'work', gender: 'male', outfit: 'farm', age: year - father.birthYear, health: 70, happiness: 60 }, x: 330 });
-    if (mother) out.push({ sprite: { stage: 'work', gender: 'female', outfit: 'casual', age: year - mother.birthYear, health: 70, happiness: 60 }, x: 525 });
+    if (father) {
+      const a = year - father.birthYear;
+      out.push({ sprite: { stage: 'work', gender: 'male', outfit: 'farm', age: a, health: 70, happiness: 60 }, x: 330, kind: 'father', age: a });
+    }
+    if (mother) {
+      const a = year - mother.birthYear;
+      out.push({ sprite: { stage: 'work', gender: 'female', outfit: 'casual', age: a, health: 70, happiness: 60 }, x: 525, kind: 'mother', age: a });
+    }
     return out;
   }
   const spouse = alive.find((m) => m.role === 'spouse');
@@ -118,6 +132,8 @@ function companionsFor(
     out.push({
       sprite: { stage: stageOf(spouseAge), gender: gender === 'male' ? 'female' : 'male', outfit: 'casual', age: spouseAge, health: 70, happiness: 60 },
       x: 540,
+      kind: 'spouse',
+      age: spouseAge,
     });
   }
   const child = alive.find((m) => m.role === 'child');
@@ -127,6 +143,8 @@ function companionsFor(
       out.push({
         sprite: { stage: stageOf(childAge), gender: 'male', outfit: 'school', age: childAge, health: 80, happiness: 70 },
         x: 345,
+        kind: 'child',
+        age: childAge,
       });
     }
   }

@@ -2,6 +2,7 @@ import { TIER_LABEL } from '../../data/labels';
 import { evaluateEnding } from '../../engine/ending';
 import type { GameSnapshot } from '../../engine/game';
 import type { Birth, DeathInfo, Ending, LedgerEntry, YearSnapshot } from '../../engine/types';
+import { eraOfYear } from './era';
 import { shareUrl } from './share';
 
 export interface EndingCardData {
@@ -137,12 +138,17 @@ export function renderEndingCard(
   const { birth, ending, death, snapshots } = data;
   const a = ending.aggregate;
 
-  // 与界面同源（v3 视觉身份「老挂历」）：暖纸底 + 砖红 + 宋体，
-  // 右上角盖一枚「生逢其时」方印——这是本作的卡，不是通用模板。
-  const INK = '#2f2a24';
-  const MUTED = '#8b7d63';
-  const PAPER = '#f7f1de';
-  const ACCENT = '#a63b30';
+  // 与界面同源：结局卡按「出生年份的时代」取色（v4 三时代）——
+  // 胶片时代生的人，卡是棕褐相册页；数字时代生的人，卡是冷白的，
+  // 朱红只剩右上角那枚方印。三套色与界面 [data-era] 变量一一对应。
+  const eraId = eraOfYear(birth.year).id;
+  const INK = eraId === 'film' ? '#33261a' : eraId === 'digital' ? '#232c34' : '#2f2a24';
+  const MUTED = eraId === 'film' ? '#7d6a4d' : eraId === 'digital' ? '#68737c' : '#8b7d63';
+  const PAPER = eraId === 'film' ? '#eee0b8' : eraId === 'digital' ? '#f2f4f1' : '#f7f1de';
+  const ACCENT = eraId === 'film' ? '#7e3324' : eraId === 'digital' ? '#2f4d6d' : '#b03a2e';
+  const FRAME = eraId === 'film' ? '#b99e6d' : eraId === 'digital' ? '#aebbb0' : '#c9b586';
+  const FRAME2 = eraId === 'film' ? '#cdb385' : eraId === 'digital' ? '#c9d2c6' : '#d9c9a1';
+  const SEAL = '#a63b30';
   const SERIF = '"Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif';
   const SANS = '"PingFang SC", "Microsoft YaHei", sans-serif';
 
@@ -153,10 +159,10 @@ export function renderEndingCard(
   // 纸底 + 奖状式双框（外粗内细）
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#c9b586';
+  ctx.strokeStyle = FRAME;
   ctx.lineWidth = 3;
   ctx.strokeRect(44, 44, W - 88, H - 88);
-  ctx.strokeStyle = '#d9c9a1';
+  ctx.strokeStyle = FRAME2;
   ctx.lineWidth = 1;
   ctx.strokeRect(58, 58, W - 116, H - 116);
 
@@ -164,7 +170,7 @@ export function renderEndingCard(
   ctx.save();
   ctx.translate(W - PAD - 52, 118);
   ctx.rotate((-8 * Math.PI) / 180);
-  ctx.fillStyle = ACCENT;
+  ctx.fillStyle = SEAL;
   ctx.fillRect(-52, -52, 104, 104);
   ctx.strokeStyle = 'rgba(253,246,227,0.55)';
   ctx.lineWidth = 3;
@@ -322,7 +328,7 @@ export function renderEndingCard(
   // ---- L4 页脚：文案列 596 + 右下二维码（白板 246）----
   const footTop = 1500;
   const textColW = 596;
-  ctx.strokeStyle = '#e3d8c3';
+  ctx.strokeStyle = FRAME2;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(PAD, footTop - 26);

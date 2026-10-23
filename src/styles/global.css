@@ -2711,3 +2711,272 @@ h1,
   border-color: var(--accent);
   background: rgba(166, 59, 48, 0.05);
 }
+
+
+/* =====================================================================
+   v4 三时代 + 版式重排（用户 2026-10-22 拍板，规格见演示页 era-demo）
+   时代由当前年份决定（era.ts：1990 / 2010 两道坎），[data-era] 挂在
+   .screen 上，整屏变量一起换；切换时颜色缓变 1.1 秒 + 时代字卡转场。
+   ===================================================================== */
+
+/* ---------- 三套时代变量 ---------- */
+
+.screen[data-era] {
+  min-height: 100dvh;
+  background: var(--ink);
+  transition: background-color 1.1s ease;
+}
+
+.screen[data-era='film'] {
+  --ink: #e2cda6;
+  --ink-2: #f2e7c8;
+  --paper: #33261a;
+  --muted: #7d6a4d;
+  --line: #b99e6d;
+  --accent: #7e3324;
+  background-image: radial-gradient(rgba(58, 42, 26, 0.05) 1px, transparent 1.2px);
+  background-size: 5px 5px;
+}
+
+.screen[data-era='calendar'] {
+  --ink: #f8f1de;
+  --ink-2: #fffdf6;
+  --paper: #2f2a24;
+  --muted: #7b7161;
+  --line: #e0d0a4;
+  --accent: #b03a2e;
+}
+
+.screen[data-era='digital'] {
+  --ink: #edf0ec;
+  --ink-2: #ffffff;
+  --paper: #232c34;
+  --muted: #68737c;
+  --line: #c9d2c6;
+  --accent: #2f4d6d;
+}
+
+/* 数字时代标题改回无衬线：宋体是前两个时代的，屏幕时代不用它 */
+.screen[data-era='digital'] .card-title,
+.screen[data-era='digital'] .play-year,
+.screen[data-era='digital'] .identity-name,
+.screen[data-era='digital'] .birth-head h1,
+.screen[data-era='digital'] .year-number {
+  font-family: var(--sans);
+  letter-spacing: 0.02em;
+}
+
+/* 五维印刷色随时代变 */
+.screen[data-era='film'] .stat-health { background: #5c6b46; }
+.screen[data-era='film'] .stat-ability { background: #5f7482; }
+.screen[data-era='film'] .stat-wealth { background: #8a6a35; }
+.screen[data-era='film'] .stat-family { background: #7e3324; }
+.screen[data-era='film'] .stat-happiness { background: #6e4a3a; }
+
+.screen[data-era='calendar'] .stat-health { background: #4e7a51; }
+.screen[data-era='calendar'] .stat-ability { background: #3e5f7a; }
+.screen[data-era='calendar'] .stat-wealth { background: #a87c1e; }
+.screen[data-era='calendar'] .stat-family { background: #b03a2e; }
+.screen[data-era='calendar'] .stat-happiness { background: #77608f; }
+
+.screen[data-era='digital'] .stat-health { background: #4e7a6a; }
+.screen[data-era='digital'] .stat-ability { background: #2f4d6d; }
+.screen[data-era='digital'] .stat-wealth { background: #b3872e; }
+.screen[data-era='digital'] .stat-family { background: #5b7a99; }
+.screen[data-era='digital'] .stat-happiness { background: #7a6a9f; }
+
+/* 换代时整屏缓变，不许硬切 */
+.screen[data-era] .card,
+.screen[data-era] .play-head,
+.screen[data-era] .play-clock,
+.screen[data-era] .ctrl,
+.screen[data-era] .focus-btn,
+.screen[data-era] .btn,
+.screen[data-era] .btn-primary {
+  transition: background-color 1.1s ease, border-color 1.1s ease, color 1.1s ease;
+}
+
+.screen[data-era] .stat-fill {
+  transition: background-color 1.1s ease, width 0.6s ease;
+}
+
+.screen[data-era] .identity-top {
+  transition: background-color 1.1s ease;
+}
+
+/* ---------- 时代字卡转场 ---------- */
+
+.era-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  background: rgba(30, 24, 18, 0.28);
+  animation: era-veil 2s ease forwards;
+  cursor: pointer;
+}
+
+.era-card-inner {
+  text-align: center;
+  background: rgba(30, 24, 18, 0.62);
+  color: #f6efdb;
+  padding: 24px 48px 20px;
+  border-radius: 8px;
+  animation: era-card-in 0.45s ease;
+}
+
+.era-card-name {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.era-card-years {
+  font-size: 13.5px;
+  opacity: 0.85;
+  letter-spacing: 0.3em;
+  margin-top: 2px;
+}
+
+.era-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff6da;
+  animation: era-flash 0.55s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes era-veil {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  76% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes era-card-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes era-flash {
+  0% { opacity: 0; }
+  25% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen[data-era],
+  .screen[data-era] .card,
+  .screen[data-era] .stat-fill {
+    transition: none;
+  }
+}
+
+/* ---------- 舒适度：字号、内边距、行高整体放大一档 ---------- */
+
+.card {
+  padding: 17px 18px 19px;
+  border-radius: 6px;
+}
+
+/* 这两张卡有自己的贴边结构，被上面的通用内边距压回来 */
+.identity-card {
+  padding: 0 0 14px;
+}
+
+.scene-card {
+  padding: 0 0 12px;
+}
+
+.card-title {
+  font-size: 15px;
+}
+
+.stat {
+  grid-template-columns: 64px minmax(0, 1fr) 32px;
+}
+
+.stat-label,
+.stat-value {
+  font-size: 13px;
+}
+
+.record-card .timeline li {
+  font-size: 13.5px;
+  line-height: 1.85;
+  grid-template-columns: 46px minmax(0, 1fr);
+}
+
+.family-list li,
+.peers-list li {
+  font-size: 13px;
+}
+
+.scene-note {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.focus-btn {
+  padding: 12px 13px;
+  border-radius: 5px;
+}
+
+.birth-card {
+  padding: 18px 20px;
+}
+
+.card-line {
+  font-size: 13px;
+}
+
+/* 身份证卡下半段的「背景」区：和上半段之间一道虚线，像档案袋里的分栏 */
+.identity-facts {
+  margin: 10px 12px 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+/* ---------- 桌面版式：场景整行主视觉，下方三列 ---------- */
+
+@media (min-width: 1180px) {
+  .screen.play-screen {
+    max-width: 1380px;
+    grid-template-columns: 300px minmax(0, 1fr) 330px;
+    grid-template-areas:
+      'head head head'
+      'scene scene scene'
+      'identity focus family'
+      'identity record family'
+      'status record peers'
+      'status record map';
+    column-gap: 18px;
+    row-gap: 18px;
+  }
+
+  /* 三个包裹层退出布局，它们的孩子直接成为网格项 */
+  .play-col-left,
+  .play-stage,
+  .play-side {
+    display: contents;
+  }
+
+  .play-head { grid-area: head; }
+  .scene-card { grid-area: scene; }
+  .identity-card { grid-area: identity; }
+  .status-card { grid-area: status; }
+  .focus-card { grid-area: focus; }
+  .record-card { grid-area: record; }
+  .family-card { grid-area: family; }
+  .peers-card { grid-area: peers; }
+  .map-card { grid-area: map; }
+
+  /* 场景是主角：整行、限宽居中，约合现在 1.6 倍高 */
+  .scene-card {
+    width: 100%;
+    max-width: 920px;
+    justify-self: center;
+  }
+}

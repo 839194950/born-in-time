@@ -1,0 +1,52 @@
+{
+ "tpl-adult-f": {
+  "aspect": 0.231,
+  "head": 0.182,
+  "torso": 0.222
+ },
+ "tpl-adult-m": {
+  "aspect": 0.283,
+  "head": 0.181,
+  "torso": 0.283
+ },
+ "tpl-child-f": {
+  "aspect": 0.459,
+  "head": 0.459,
+  "torso": 0.325
+ },
+ "tpl-child-m": {
+  "aspect": 0.349,
+  "head": 0.321,
+  "torso": 0.349
+ },
+ "tpl-elder-f": {
+  "aspect": 0.294,
+  "head": 0.225,
+  "torso": 0.294
+ },
+ "tpl-elder-m": {
+  "aspect": 0.327,
+  "head": 0.221,
+  "torso": 0.302
+ },
+ "tpl-teen-f": {
+  "aspect": 0.246,
+  "head": 0.188,
+  "torso": 0.237
+ },
+ "tpl-teen-m": {
+  "aspect": 0.247,
+  "head": 0.161,
+  "torso": 0.236
+ },
+ "tpl-toddler-f": {
+  "aspect": 0.456,
+  "head": 0.415,
+  "torso": 0.456
+ },
+ "tpl-toddler-m": {
+  "aspect": 0.493,
+  "head": 0.419,
+  "torso": 0.386
+ }
+}

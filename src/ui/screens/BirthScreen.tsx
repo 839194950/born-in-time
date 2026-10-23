@@ -5,6 +5,7 @@ import { yearNote } from '../../data/yearNotes';
 import { rollBirth } from '../../engine/birth';
 import { YEAR_FROM, YEAR_TO } from '../../engine/types';
 import { Portrait } from '../components/Portrait';
+import { eraOfYear } from '../lib/era';
 import { SEED_PARAM, encodeSeed, nextSeed, seedFromLocation } from '../lib/share';
 import { createRng } from '../../engine/rng';
 import type { Birth } from '../../engine/types';
@@ -118,7 +119,7 @@ export default function BirthScreen({
   }, [birth]);
 
   return (
-    <main className="screen birth-screen">
+    <main className="screen birth-screen" data-era={eraOfYear(birth.year).id}>
       <header className="birth-head">
         <h1>生逢其时</h1>
         <p className="sub">从恢复高考那年开始抽，抽到哪一年，就过哪一年的人生。</p>

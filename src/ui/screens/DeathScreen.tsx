@@ -28,6 +28,7 @@ export function DeathMoment({ snapshot, onNext }: { snapshot: GameSnapshot; onNe
           happiness={snapshot.stats.happiness}
           flags={snapshot.flags}
           family={snapshot.family}
+          seed={snapshot.seed}
           variant="plain"
         />
       </div>

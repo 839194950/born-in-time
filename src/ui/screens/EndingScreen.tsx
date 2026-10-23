@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { copyText, downloadCanvas } from '../lib/clipboard';
 import { buildPlainText, renderEndingCard, type CardQr, type EndingCardData } from '../lib/endingCard';
+import { eraOfYear } from '../lib/era';
 import { shareUrl } from '../lib/share';
 import { playCue } from '../audio';
 import { track } from '../analytics';
@@ -75,7 +76,7 @@ export function EndingScreen({
   };
 
   return (
-    <main className="screen ending-screen">
+    <main className="screen ending-screen" data-era={eraOfYear(data.birth.year).id}>
       <canvas ref={canvasRef} className="ending-canvas" aria-label="结局卡" />
 
       {/* canvas 对读屏与搜索不可见，这里补一份可读文本 */}

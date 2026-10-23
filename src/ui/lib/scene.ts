@@ -1,4 +1,15 @@
 import { SCENES, propsForYear, type SceneId } from '../../data/props';
+import {
+  dadStage,
+  getImage,
+  momStage,
+  otherSet,
+  plateFor,
+  plateUrl,
+  protagonistSet,
+  spriteUrl,
+  stageKeyForAge,
+} from './assets';
 import { PALETTE, drawCharacter, type SpriteSpec } from './pixel';
 
 export const SCENE_W = 960;
@@ -17,13 +28,17 @@ const UH = SCENE_H / U; // 180
 const SPRITE_FEET = 60;
 const SPRITE_SCALE = 3;
 
+export type CompanionKind = 'father' | 'mother' | 'spouse' | 'child';
+
 export interface SceneSpec {
   year: number;
   urban: boolean;
   scene: SceneId;
   sprite: SpriteSpec;
+  /** 种子决定主角抽哪套脸；缺省 0 */
+  seed?: number;
   /** companions 的 x 仍然是 960 像素坐标，方便沿用旧调用 */
-  companions?: { sprite: SpriteSpec; x: number }[];
+  companions?: { sprite: SpriteSpec; x: number; kind?: CompanionKind; age?: number }[];
 }
 
 type Rect = (x: number, y: number, w: number, h: number, color: string) => void;
@@ -510,57 +525,101 @@ function grainHash(n: number): number {
 }
 
 /**
- * 年代色调 = 旧照片：年份越早，褪色越重、颗粒越粗、四角越暗。
- * v2 只压一层 0.05 的暖色，玩家根本感知不到"年代在变"；这里分四档，
- * 并用确定性杂点铺颗粒（早期 300 点、90 年代 120 点、2005 后只剩极淡一层）。
+ * 年代色调 = 三个时代（与 era.ts 的分界一致：1990 / 2010）：
+ * - 胶片时代（≤1989）：强褪色 + 粗颗粒（340 点）+ 暗角，接近棕褐色调；
+ * - 挂历时代（1990–2009）：彩色照片感，只留一层薄暖意 + 50 点细颗粒；
+ * - 数字时代（≥2010）：零做旧，只压一层几乎看不见的冷色，画面清亮锐利。
+ * 跨时代那一年整幅画换代，配合界面的时代字卡，是本作的招牌转场。
  * 注意：仍不整屏压暗（v1 的教训不变）——靠褪色与颗粒传达年代，不靠变黑。
  */
 function eraGrade(r: Rect, year: number): void {
-  if (year <= 1979) r(0, 0, UW, UH, 'rgba(206,164,94,0.17)');
-  else if (year <= 1989) r(0, 0, UW, UH, 'rgba(216,176,106,0.11)');
-  else if (year <= 1999) r(0, 0, UW, UH, 'rgba(224,184,120,0.06)');
-
-  const specks = year <= 1979 ? 300 : year <= 1989 ? 200 : year <= 1999 ? 110 : year <= 2009 ? 40 : 0;
-  for (let i = 0; i < specks; i++) {
-    const gx = Math.floor(grainHash(i * 2) * UW);
-    const gy = Math.floor(grainHash(i * 2 + 1) * UH);
-    r(gx, gy, 1, 1, i % 3 === 0 ? 'rgba(255,246,220,0.10)' : 'rgba(58,42,26,0.07)');
-  }
-
-  // 暗角：只给 1989 年之前，四角逐级压三层，像老照片的边缘氧化
-  if (year <= 1989) {
-    const v = 'rgba(74,52,28,0.055)';
+  if (year < 1990) {
+    r(0, 0, UW, UH, 'rgba(198,152,84,0.22)');
+    for (let i = 0; i < 340; i++) {
+      const gx = Math.floor(grainHash(i * 2) * UW);
+      const gy = Math.floor(grainHash(i * 2 + 1) * UH);
+      r(gx, gy, 1, 1, i % 3 === 0 ? 'rgba(255,246,220,0.10)' : 'rgba(58,42,26,0.08)');
+    }
+    const v = 'rgba(74,52,28,0.07)';
     r(0, 0, UW, 3, v);
     r(0, UH - 3, UW, 3, v);
     r(0, 0, 4, UH, v);
     r(UW - 4, 0, 4, UH, v);
-    r(0, 3, UW, 2, 'rgba(74,52,28,0.03)');
-    r(0, UH - 5, UW, 2, 'rgba(74,52,28,0.03)');
+    r(0, 3, UW, 2, 'rgba(74,52,28,0.04)');
+    r(0, UH - 5, UW, 2, 'rgba(74,52,28,0.04)');
+    return;
   }
+  if (year < 2010) {
+    r(0, 0, UW, UH, 'rgba(226,186,120,0.05)');
+    for (let i = 0; i < 50; i++) {
+      const gx = Math.floor(grainHash(i * 2) * UW);
+      const gy = Math.floor(grainHash(i * 2 + 1) * UH);
+      r(gx, gy, 1, 1, 'rgba(58,42,26,0.05)');
+    }
+    return;
+  }
+  r(0, 0, UW, UH, 'rgba(110,130,150,0.04)');
 }
+
+/** 精灵显示高度（相对成年 252px）：幼儿到少年按年龄段长个，老年略缩 */
+const STAGE_H: Record<string, number> = {
+  '03': 0.46, '08': 0.62, '15': 0.86, '25': 1, '45': 1, '70': 0.95,
+  '30': 1, '50': 1, '75': 0.95, '28': 1, '48': 1, '72': 0.95,
+};
+const ADULT_H = 252;
 
 export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void {
   const r = makeRect(ctx);
   const mode = SCENES.find((s) => s.id === spec.scene)?.mode ?? 'outdoor';
   ctx.clearRect(0, 0, SCENE_W, SCENE_H);
 
-  if (mode === 'outdoor') drawOutdoor(r, spec);
-  else drawIndoor(r, spec);
+  // 生图背景板优先：有板就用板（板自带道具与纵深），没有则程序画。
+  const plate = plateFor(spec.scene, spec.year);
+  const plateImg = plate ? getImage(plateUrl(plate)) : null;
+  if (plate && plateImg) {
+    const scale = Math.max(SCENE_W / plateImg.naturalWidth, SCENE_H / plateImg.naturalHeight);
+    const dw = plateImg.naturalWidth * scale;
+    const dh = plateImg.naturalHeight * scale;
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(plateImg, (SCENE_W - dw) / 2, SCENE_H - dh, dw, dh);
+    ctx.restore();
+  } else if (mode === 'outdoor') {
+    drawOutdoor(r, spec);
+  } else {
+    drawIndoor(r, spec);
+  }
 
   eraGrade(r, spec.year);
 
   // 室外基线要比"地平线"再往前几格：v1 直接踩在地平线上，
-  // 腿的下半截被栅栏和草沿切掉，人看起来像跪着。
-  const feetUnits = mode === 'outdoor' ? 165 : 170;
-  const feetPx = feetUnits * U;
+  // 腿的下半截被栅栏和草沿切掉，人看起来像跪着。有板时用板登记的基线。
+  const feetPx = plate && plateImg ? plate.baseline : (mode === 'outdoor' ? 165 : 170) * U;
   const xPx = spec.scene === 'classroom' ? 300 : 430;
+  const seed = spec.seed ?? 0;
+
+  const shadow = (px: number, halfW: number): void => {
+    ctx.fillStyle = 'rgba(61,47,36,0.15)';
+    ctx.fillRect(Math.round(px - halfW), feetPx - 4, halfW * 2, 5);
+    ctx.fillRect(Math.round(px - halfW * 0.7), feetPx - 6, halfW * 1.4, 3);
+  };
+
+  /** 生图精灵：加载完就用它，未加载完返回 false 让调用方回退像素小人 */
+  const placeImage = (set: string, stage: string, px: number, bob = 0): boolean => {
+    const img = getImage(spriteUrl(set, stage));
+    if (!img) return false;
+    const h = ADULT_H * (STAGE_H[stage] ?? 1);
+    const w = (h * img.naturalWidth) / img.naturalHeight;
+    shadow(px, Math.round(w * 0.32));
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, px - w / 2, feetPx - h + bob, w, h);
+    ctx.restore();
+    return true;
+  };
 
   const place = (sprite: SpriteSpec, px: number): void => {
-    // 接地阴影：两段叠加，近似一个扁椭圆
-    ctx.fillStyle = 'rgba(61,47,36,0.15)';
-    ctx.fillRect(Math.round(px - 27), feetPx - 4, 54, 5);
-    ctx.fillRect(Math.round(px - 19), feetPx - 6, 38, 3);
-
+    shadow(px, 27);
     ctx.save();
     ctx.translate(px, feetPx - SPRITE_FEET * SPRITE_SCALE);
     ctx.scale(SPRITE_SCALE, SPRITE_SCALE);
@@ -568,6 +627,17 @@ export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void 
     ctx.restore();
   };
 
-  for (const c of spec.companions ?? []) place(c.sprite, c.x);
-  place(spec.sprite, xPx);
+  for (const c of spec.companions ?? []) {
+    const age = c.age ?? c.sprite.age;
+    let done = false;
+    if (c.kind === 'father') done = placeImage('dad', dadStage(age), c.x);
+    else if (c.kind === 'mother') done = placeImage('mom', momStage(age), c.x);
+    else if (c.kind) done = placeImage(otherSet(seed, c.sprite.gender), stageKeyForAge(age), c.x);
+    if (!done) place(c.sprite, c.x);
+  }
+
+  const bob = spec.sprite.breath ? -2 : 0;
+  if (!placeImage(protagonistSet(seed, spec.sprite.gender), stageKeyForAge(spec.sprite.age), xPx, bob)) {
+    place(spec.sprite, xPx);
+  }
 }
