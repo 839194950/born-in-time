@@ -5,6 +5,7 @@ import { yearNote } from '../../data/yearNotes';
 import { rollBirth } from '../../engine/birth';
 import { YEAR_FROM, YEAR_TO } from '../../engine/types';
 import { Portrait } from '../components/Portrait';
+import { protagonistSet } from '../lib/assets';
 import { eraOfYear } from '../lib/era';
 import { SEED_PARAM, encodeSeed, nextSeed, seedFromLocation } from '../lib/share';
 import { createRng } from '../../engine/rng';
@@ -24,7 +25,7 @@ export function siblingsLine(siblings: number): string {
   return siblings === 0 ? '独生子女' : `${siblings} 个兄弟姐妹`;
 }
 
-export function BirthCard({ birth }: { birth: Birth }) {
+export function BirthCard({ birth, seed }: { birth: Birth; seed?: number }) {
   return (
     <section className="birth-card" aria-label="出生卡">
       <div className="card-head">
@@ -37,7 +38,15 @@ export function BirthCard({ birth }: { birth: Birth }) {
 
       <div className="birth-body">
         <div className="birth-portrait">
-          <Portrait age={0} gender={birth.gender} urban={birth.urban} health={80} happiness={60} flags={[]} />
+          <Portrait
+            age={0}
+            gender={birth.gender}
+            urban={birth.urban}
+            health={80}
+            happiness={60}
+            flags={[]}
+            set={seed !== undefined ? protagonistSet(seed, birth.gender) : undefined}
+          />
         </div>
 
         <dl className="card-grid">
@@ -135,7 +144,7 @@ export default function BirthScreen({
       </p>
 
       {/* 抽签期间保留占位，避免读屏用户遇到"标题之后整张卡凭空出现" */}
-      <div aria-busy={rolling}>{rolling ? <div className="birth-card-placeholder" aria-hidden="true" /> : <BirthCard birth={birth} />}</div>
+      <div aria-busy={rolling}>{rolling ? <div className="birth-card-placeholder" aria-hidden="true" /> : <BirthCard birth={birth} seed={seed} />}</div>
 
       <div className="actions">
         <button

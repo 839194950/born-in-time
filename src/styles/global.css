@@ -1174,10 +1174,8 @@ body {
     background: linear-gradient(180deg, rgba(246, 240, 228, 0), var(--ink) 45%);
   }
 
-  /* 桌面下场景更高，别让 16:9 把左栏撑得太矮 */
-  .play-stage .scene-wrap {
-    max-height: 420px;
-  }
+  /* 场景框严格 16:9：曾有 max-height:420px 的限高，与 aspect-ratio 打架，
+     桌面端把 960×540 的画面纵向压扁约 19%（人物发宽），2026-10-23 移除 */
 }
 
 

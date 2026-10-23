@@ -46,3 +46,14 @@ for name in PLATE_STEMS:
     h = int(im.height * 1440 / im.width)
     im.resize((1440, h), Image.LANCZOS).save(os.path.join(PUB, 'plates', name + '.webp'), 'WEBP', quality=84, method=6)
     print('plate', name, im.size)
+
+# 证件照（2026-10-23 新增）：源图 assets-src/idphotos/<set>-<stage>.png（1344×1792 生图），
+# 打包为 336×448 webp（身份证卡显示 56×75，6 倍图保 Retina 清晰度）
+os.makedirs(os.path.join(PUB, 'idphotos'), exist_ok=True)
+for set_id in ['am', 'bm', 'cm', 'af', 'bf', 'cf', 'df']:
+    for stage in SETS[set_id]:
+        src = os.path.join(ROOT, 'assets-src/idphotos', f'{set_id}-{stage}.png')
+        assert os.path.exists(src), f'idphoto missing: {set_id}-{stage}'
+        im = Image.open(src).convert('RGB')
+        im.resize((336, 448), Image.LANCZOS).save(os.path.join(PUB, 'idphotos', f'{set_id}-{stage}.webp'), 'WEBP', quality=85, method=6)
+        print('idphoto', set_id, stage)

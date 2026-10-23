@@ -11,6 +11,7 @@ import { STILLS } from '../../data/stills';
 import { eraOfYear, type EraInfo } from '../lib/era';
 import { EventModal } from '../components/EventModal';
 import { Portrait } from '../components/Portrait';
+import { protagonistSet } from '../lib/assets';
 import { roleFromFlags, SceneStage } from '../components/SceneStage';
 import { StatBar } from '../components/StatBar';
 import { Timeline } from '../components/Timeline';
@@ -206,6 +207,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
               health={snapshot.stats.health}
               happiness={snapshot.stats.happiness}
               flags={snapshot.flags}
+              set={protagonistSet(snapshot.seed, snapshot.birth.gender)}
             />
             <dl className="identity-rows">
               <div>

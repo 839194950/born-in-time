@@ -50,6 +50,11 @@ export function spriteUrl(set: string, stage: string): string {
   return `${BASE}assets/sprites/${set}-${stage}.webp`;
 }
 
+/** 证件照：与精灵同一套索引（角色套×年龄段），public/assets/idphotos 下 */
+export function idPhotoUrl(set: string, stage: string): string {
+  return `${BASE}assets/idphotos/${set}-${stage}.webp`;
+}
+
 // ---------------------------------------------------------------- 背景板
 
 export interface PlateDef {
