@@ -29,6 +29,67 @@ export interface PlayActions {
   advanceToDecision(): void;
 }
 
+/** 当前这一年的实时进度：跟游戏 tick 同步走（暂停/抉择时冻结）。
+ *  一年时长 = YEAR_MS / speed；用 200ms 步进刷新，进度条挂在吸顶的
+ *  顶部工具条里，手机上滑到哪都能看见。 */
+function YearProgress({
+  year,
+  speed,
+  paused,
+  phase,
+}: {
+  year: number;
+  speed: number;
+  paused: boolean;
+  phase: string;
+}) {
+  const [pct, setPct] = useState(0);
+  const elapsedRef = useRef(0);
+  const lastRef = useRef(0);
+  const running = phase === 'playing' && !paused;
+
+  // 换年：进度清零重算
+  useEffect(() => {
+    elapsedRef.current = 0;
+    lastRef.current = performance.now();
+    setPct(0);
+  }, [year]);
+
+  useEffect(() => {
+    lastRef.current = performance.now();
+    if (!running) return;
+    const id = window.setInterval(() => {
+      const now = performance.now();
+      elapsedRef.current += now - lastRef.current;
+      lastRef.current = now;
+      setPct(Math.min(100, (elapsedRef.current / (YEAR_MS / speed)) * 100));
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [running, speed]);
+
+  if (phase !== 'playing' && phase !== 'awaitingChoice') return null;
+  const label = paused
+    ? `已暂停 · 今年已过 ${Math.floor(pct)}%`
+    : phase === 'awaitingChoice'
+      ? `等你抉择 · 今年已过 ${Math.floor(pct)}%`
+      : `今年已过 ${Math.floor(pct)}%`;
+  return (
+    <div
+      className="year-progress"
+      role="progressbar"
+      aria-label="本年进度"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.floor(pct)}
+    >
+      <div className="year-progress-track">
+        <div className="year-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="year-progress-label">{label}</span>
+    </div>
+  );
+}
+
 export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; actions: PlayActions }) {
   const [speed, setSpeed] = useState<number>(1);
   const [paused, setPaused] = useState(false);
@@ -190,6 +251,12 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
             {muted ? '🔇' : '🔊'}
           </button>
         </div>
+        <YearProgress
+          year={snapshot.year}
+          speed={speed}
+          paused={paused}
+          phase={phase}
+        />
       </header>
 
       {/* 左栏：身份 + 状态 */}

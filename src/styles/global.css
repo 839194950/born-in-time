@@ -1539,9 +1539,15 @@ body {
 }
 
 .ctrl.is-active {
-  background: var(--paper);
-  border-color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
+  font-weight: 700;
+}
+
+/* 手机上点按钮时的系统高亮会把深底洗成浅灰（实机上选中态看着像白底白字），禁掉它 */
+.ctrl {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ctrl:disabled {
@@ -1735,6 +1741,36 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 3px;
+}
+
+/* 当前年份的实时进度条：挂在吸顶工具条里，独占一行，滑到哪都看得见 */
+.year-progress {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-progress-track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ece3cb;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.year-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s linear;
+}
+
+.year-progress-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 /* ---------- 身份卡 ---------- */
@@ -2656,9 +2692,14 @@ h1,
   border-color: #8c2f24;
 }
 
-/* 身份证卡右下角盖一枚小印：朱红方印、白字、略歪——手盖的才有这一下 */
+/* 身份证卡右下角盖一枚小印：朱红方印、白字、略歪——手盖的才有这一下。
+   印在卡片右下角，下面的背景行要留出空位，别让印盖住"预期寿命"那行字 */
 .identity-card {
   position: relative;
+}
+
+.identity-facts {
+  padding-bottom: 46px;
 }
 
 .identity-card::after {
