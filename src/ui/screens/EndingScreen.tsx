@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { copyText, downloadCanvas } from '../lib/clipboard';
+import { canvasToImageUrl, copyText, downloadCanvas } from '../lib/clipboard';
 import { buildPlainText, renderEndingCard, type CardQr, type EndingCardData } from '../lib/endingCard';
 import { eraOfYear } from '../lib/era';
 import { shareUrl } from '../lib/share';
@@ -17,6 +17,8 @@ export function EndingScreen({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
+  /** 下载被浏览器拦下时，把图挂到页面上让玩家长按保存 */
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const [qr, setQr] = useState<CardQr | null>(null);
   const url = shareUrl(data.seed);
 
@@ -61,12 +63,18 @@ export function EndingScreen({
     }
   }, [data, qr]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      downloadCanvas(canvas, `shengfengqishi-${data.birth.year}.png`);
+    if (!canvas) return;
+    const ok = await downloadCanvas(canvas, `shengfengqishi-${data.birth.year}.png`);
+    if (ok) {
       track('save_png');
+      return;
     }
+    // 下载被拦（iOS Safari 常见）：把图挂出来让玩家长按保存。
+    // 以前这里是静默失败——玩家点一下什么都没发生，而页面还在说"不要截屏"。
+    setFallbackSrc(canvasToImageUrl(canvas));
+    track('save_png_fail');
   };
 
   const handleCopy = async () => {
@@ -98,6 +106,13 @@ export function EndingScreen({
       </div>
       {/* 给发送者看的提示：截屏会把二维码压成 65px，扫不出来 */}
       <p className="ending-tip">发之前请用「保存图片」，不要直接截屏——截屏后二维码会扫不出来。</p>
+
+      {fallbackSrc && (
+        <div className="ending-fallback">
+          <p className="ending-tip">浏览器拦下了下载。请长按下面这张图保存到相册。</p>
+          <img src={fallbackSrc} alt="这一局的结局卡，长按可保存" />
+        </div>
+      )}
 
       <button type="button" className="btn-link" onClick={onReview}>
         看详细复盘 →

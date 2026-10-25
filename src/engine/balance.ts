@@ -1,5 +1,6 @@
 import { evaluateEnding } from './ending';
 import { CONTINUE_CHOICE_ID, Game } from './game';
+import { createRng } from './rng';
 import type { Stats } from './types';
 
 export interface BatchRow {
@@ -25,15 +26,18 @@ export interface BatchRow {
  * 机器人策略。
  * - `first`：永远选第一个可用项（默认，代表"随大流"的玩家）
  * - `health`：每年把重心切到最养生的那项（代表"刻意为长寿经营"的玩家）
+ * - `random`：随机挑（代表"第一次玩、凭感觉点"的玩家）
  *
- * 两条曲线一起看才有意义：某个称号在 first 上为 0、在 health 上可达，
- * 说明它是"可经营的 build"，而不是"随机抽奖"。
+ * 三条曲线一起看才有意义。只有前两条时有两个盲区：都是极端值，
+ * 且 `first` 会永远选到"出来单干"这类排在首位但不代表大众的选项——
+ * 「守一座城」在 first 下 2%、在 random 下 10%，只看前者会误判它很稀有。
  */
-export type BotStrategy = 'first' | 'health';
+export type BotStrategy = 'first' | 'health' | 'random';
 
 /** 用机器人跑完一局，用来观察数值与节奏 */
 export function runOne(seed: number, strategy: BotStrategy = 'first'): BatchRow {
   const game = new Game({ seed });
+  const policy = createRng((seed ^ 0x51ab3) >>> 0);
   game.start();
 
   let guard = 0;
@@ -44,9 +48,15 @@ export function runOne(seed: number, strategy: BotStrategy = 'first'): BatchRow 
         (b.effects.health ?? 0) > (a.effects.health ?? 0) ? b : a,
       );
       if (best && snap.focusId !== best.id) game.setFocus(best.id);
+    } else if (strategy === 'random' && snap.focusOptions.length > 0 && policy.chance(0.15)) {
+      game.setFocus(snap.focusOptions[policy.int(0, snap.focusOptions.length - 1)]!.id);
     }
     if (snap.phase === 'awaitingChoice') {
-      const pick = snap.pendingEvent?.choices.find((c) => c.state === 'available');
+      const available = snap.pendingEvent?.choices.filter((c) => c.state === 'available') ?? [];
+      const pick =
+        strategy === 'random' && available.length > 0
+          ? available[policy.int(0, available.length - 1)]
+          : available[0];
       game.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
     } else {
       game.tick();

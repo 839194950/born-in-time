@@ -11,6 +11,7 @@ import {
   pushRecord,
 } from '../engine/save';
 import type { Birth } from '../engine/types';
+import { clearSeedFromUrl } from './lib/share';
 
 export interface GameStore {
   subscribe(listener: () => void): () => void;
@@ -99,6 +100,8 @@ export function createGameStore(): GameStore {
       detach = null;
       game = null;
       recorded = false;
+      // 回到出生屏前清掉地址栏里的种子，否则「再抽一年」抽到的还是同一年
+      clearSeedFromUrl();
       emit();
     },
     setFocus(id) {

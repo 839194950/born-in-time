@@ -6,7 +6,7 @@ import { pickName } from '../data/names';
 import { cohortLifeExpectancy } from '../data/demography';
 import { rollBirth } from './birth';
 import {
-  MAX_DECISIONS_PER_YEAR,
+  MAX_ERA_DECISIONS_PER_YEAR,
   findDueBroadcasts,
   findDueEvents,
   matchesConditions,
@@ -20,6 +20,7 @@ import { evaluateChoice } from './options';
 import { createRng, rngFor, type Rng } from './rng';
 import {
   FOCUS_EFFECT_SCALE,
+  SILENT_SETTLE_SCALE,
   STAT_TUNING,
   abilityDecay,
   adaptHappiness,
@@ -65,6 +66,18 @@ const EMPTY_AXES: Record<AxisKey, number> = {
 };
 
 export type Phase = 'playing' | 'awaitingChoice' | 'dead';
+
+/**
+ * 抉择的两条通道。
+ *
+ * 分开的理由：两条通道的"确定性"不一样。人生节点是到了岁数必然落在你身上的事
+ * （上学、结婚、生孩子、体检），不该被一条权重更高的时代事件顶掉；时代事件则
+ * 是"外面发生的事"，同一年有好几条时只弹最重的，其余写一行播报。
+ *
+ * 注意：这条通道划分管的是**排序和节奏**，不管总量。一生有多少次抉择，由内容
+ * 密度（每条事件的窗口能覆盖多少个出生年份）决定，引擎不设全局上限。
+ */
+export type DecisionChannel = 'life' | 'era';
 
 export interface ResolvedChoice {
   id: string;
@@ -185,6 +198,19 @@ export class Game {
   private milestoneId: string | null = null;
   private firedIds = new Set<string>();
   private focusResidue: Partial<Stats> = {};
+  /**
+   * 重心变更流水：`{ year, focusId }`，`year` 是**这次重心开始参与结算的年份**。
+   *
+   * 为什么必须存：存档恢复靠"同种子 + 同事实流水重放"，而重心是每年结算的
+   * 输入之一。v2 只把最终的 `focusId` 存进存档、重放时却从没用过它，
+   * 于是玩家只要选过非默认重心，重放出来的数值就和存档对不上，
+   * 被判定为"存档不可信"并删掉整局。重心本身就是一条事实，理应进流水。
+   *
+   * 为什么 year 记的是"下一年"：tick 是 `year += 1` 之后才用 focus 结算的，
+   * 玩家在 2029 年界面上点的重心，实际参与的是 2030 年那次结算。
+   * 若按"变更当年"记录，重放时会提前一年生效，数值照样对不上。
+   */
+  private focusLog: { year: number; focusId: string }[] = [];
   private interestsXp: Record<string, number> = {};
   private firstPayNoted = false;
   private readonly dailyEvents: readonly DailyEventDef[];
@@ -192,7 +218,7 @@ export class Game {
   private dailyLastFired = new Map<string, number>();
   private flagYears = new Map<string, number>();
   private reflectionsFired = new Set<number>();
-  private pendingQueue: { def: EventDef; kind: 'daily' | 'reflection' }[] = [];
+  private pendingQueue: { def: EventDef; kind: PendingEvent['kind'] }[] = [];
   private choiceLogInternal: { eventId: string; choiceId: string }[] = [];
   private deathBase = 0;
   private started = false;
@@ -212,7 +238,18 @@ export class Game {
     this.reflectionsOn = opts.reflections ?? true;
     this.seedValue = opts.seed;
     this.rng = createRng(opts.seed);
-    this.birth = opts.birth ?? rollBirth(this.rng);
+    // 传入 birth 时也要把「抽出生」的随机流消耗掉。
+    //
+    // 否则同一种子会因为你"怎么进来的"而生成不同的人生：
+    // `new Game({ seed })` 会先抽一次出生（消耗 N 个随机数），再抽家人；
+    // 而 `new Game({ seed, birth })` 直接抽家人，于是父母、兄弟姐妹、
+    // 死亡基准全部错位——同一个种子，两条命。存档重放走的正是后者。
+    if (opts.birth) {
+      rollBirth(this.rng);
+      this.birth = opts.birth;
+    } else {
+      this.birth = rollBirth(this.rng);
+    }
     this.year = this.birth.year;
     this.stats = initialStats(this.birth);
     this.focusId = defaultFocusFor('infant');
@@ -234,6 +271,11 @@ export class Game {
   /** 全部已做出的抉择流水（存档重放靠它复现日常/反思的选择） */
   get choiceLog(): readonly { eventId: string; choiceId: string }[] {
     return this.choiceLogInternal;
+  }
+
+  /** 重心变更流水（存档重放靠它复现每年的年度重心） */
+  get focusLogReadonly(): readonly { year: number; focusId: string }[] {
+    return this.focusLog;
   }
 
   /** 存档要靠它重放，所以种子必须随局保存 */
@@ -265,12 +307,34 @@ export class Game {
     this.deathBase = Math.round(
       this.birth.cohortLifeExpectancy + this.rng.next() * STAT_TUNING.deathNoiseYears * 2 - STAT_TUNING.deathNoiseYears,
     );
+    // 出生当年也要过一遍播报。
+    // tick() 是先 year += 1 再结算的，所以「出生那年」永远轮不到——
+    // 1958 年出生的人看不到「人民公社」，1966 年出生的看不到「学校停课」，
+    // 而这些恰好是那一代人最早的记忆。
+    const bornCtx = this.eventCtx();
+    for (const b of findDueBroadcasts(bornCtx, this.catalog, this.firedIds)) {
+      this.firedIds.add(b.id);
+      this.timeline.push({
+        year: this.year,
+        age: 0,
+        kind: 'broadcast',
+        text: `${b.title}：${pickVariantText(b, this.birth.urban)}`,
+      });
+    }
     this.touch();
   }
 
   setFocus(id: string): void {
     if (!focusOptionsFor(this.stage).some((o) => o.id === id)) return;
+    if (this.focusId === id) return;
     this.focusId = id;
+    if (this.started && this.phase !== 'dead') {
+      // 生效年份 = 下一次结算的年份；同一年内反复切换只记最后一次
+      const effectiveYear = this.year + 1;
+      const last = this.focusLog[this.focusLog.length - 1];
+      if (last && last.year === effectiveYear) last.focusId = id;
+      else this.focusLog.push({ year: effectiveYear, focusId: id });
+    }
     this.touch();
   }
 
@@ -409,10 +473,36 @@ export class Game {
     }
 
     let triggered: PendingEvent | null = null;
-    let decisions = 0;
-    for (const ev of findDueEvents(ctx, this.catalog, this.firedIds)) {
+    // 时代通道每年最多一条：多出来的降级为播报（文本不丢，只是不给选项）。
+    // 人生通道没有这个上限——人生节点是"到了岁数必然发生"的事，绝不降级。
+    let eraShown = 0;
+    for (const ev of this.sortByChannel(findDueEvents(ctx, this.catalog, this.firedIds))) {
       // priority < 3：不打断玩家，只留一行播报。把"必须决策"和"一句话带过"分开。
+      //
+      // 但"降级为播报"不等于"这件事没发生"：人生阶段事件是到了岁数必然会落在
+      // 你身上的事，只写一行字就把选项连同 effects / setFlags 一起扔掉，等于
+      // 把 16 个节点的后果全部抹掉——实测「生孩子」不结算，77.9% 的玩家一辈子
+      // 没有孩子；10 岁的「四年级」不结算 +3 能力，15 岁能力均值被压到 44.7，
+      // 而「读高中」的门槛是 46。所以这里按 default 选项静默结算后果。
+      //
+      // 时代事件不走这条分支：它讲的是"大事发生那年你几岁"，降级就该只是一行
+      // 背景音，不该凭默认项给玩家发属性。
       if ((ev.priority ?? 3) < 3) {
+        this.firedIds.add(ev.id);
+        if (ev.layer === 'stage') this.settleSilently(ev);
+        this.timeline.push({
+          year: this.year,
+          age: this.age,
+          kind: 'broadcast',
+          text: `${ev.title}：${pickVariantText(ev, this.birth.urban)}`,
+        });
+        continue;
+      }
+
+      const channel = this.channelOf(ev);
+      // 时代通道满了：写成一行播报，不占弹窗。1998 那种"房改 + 下岗"同年到期
+      // 的年份，以前会连弹两个时代事件，节奏上像被灌了两段新闻。
+      if (channel === 'era' && eraShown >= MAX_ERA_DECISIONS_PER_YEAR) {
         this.firedIds.add(ev.id);
         this.timeline.push({
           year: this.year,
@@ -422,22 +512,33 @@ export class Game {
         });
         continue;
       }
-      const pending = this.trigger(ev);
-      if (pending) {
-        decisions += 1;
-        if (!triggered) triggered = pending;
-        if (decisions >= MAX_DECISIONS_PER_YEAR) break;
-      }
+
+      // 一个 tick 只能产出一个 pending；后来的顺延到这次抉择之后再弹，而不是丢掉。
+      //
+      // 以前这里直接 `break`，于是同年撞车的第二个事件既不弹窗、也不留播报、
+      // 下一岁也不会再触发（年龄触发器只匹配一次）。实测「结婚」因此丢 36%、
+      // 「第一份工作」丢 26%，房改/老龄化等时代事件丢 54–63%，而且 36.9% 的
+      // 玩家整局没见过"结婚"——人生线从源头断掉。
+      // 顺延用的就是反思节点一直在用的 pendingQueue，不是新机制。
+      const pending = this.trigger(ev, 'event', triggered !== null);
+      if (!pending) continue;
+      if (channel === 'era') eraShown += 1;
+      if (triggered) this.pendingQueue.push({ def: ev, kind: 'event' });
+      else triggered = pending;
     }
 
     // 反思节点：到岁数必须停一次。今年已有大抉择，就排在抉择之后。
+    //
+    // 以前这里是 `else if (pendingQueue.length === 0)`：队列里只要还压着东西，
+    // 这个"到岁数必须停一次"的节点就被悄悄跳过。现在事件也会进队列（见上），
+    // 所以改成无条件入队——宁可多停一次，也不要吞掉一个设计上必出的节点。
     if (this.reflectionsOn && !this.reflectionsFired.has(this.age)) {
       const reflection = reflectionFor(this.age);
       if (reflection) {
         this.reflectionsFired.add(this.age);
         const def = this.reflectionEventDef(reflection);
         if (!triggered) triggered = this.trigger(def, 'reflection');
-        else if (this.pendingQueue.length === 0) this.pendingQueue.push({ def, kind: 'reflection' });
+        else this.pendingQueue.push({ def, kind: 'reflection' });
       }
     }
 
@@ -638,12 +739,14 @@ export class Game {
   private die(): void {
     this.phase = 'dead';
     this.pending = null;
-    const birthMs = Date.UTC(this.birth.year, this.birth.month - 1, 15);
-    const deathMs = Date.UTC(this.year, 5, 15);
+    // 「活了 X 天」必须和「享年 X 岁」对得上。
+    // 以前死亡日期被硬编码成当年 6 月 15 日，于是 67 岁的人算出来的天数
+    // 可能只对应 66 岁半——玩家乘一下 365 就会发现这两个数在互相打架。
+    // 现在直接用年龄换算：一年按 365.2425 天，两个数字永远自洽。
     this.death = {
       year: this.year,
       age: this.age,
-      daysLived: Math.max(1, Math.round((deathMs - birthMs) / 86400000)),
+      daysLived: Math.max(1, Math.round(this.age * 365.2425)),
     };
   }
 
@@ -658,7 +761,41 @@ export class Game {
     };
   }
 
-  private trigger(event: EventDef, kind: PendingEvent['kind'] = 'event'): PendingEvent | null {
+  /**
+   * 触发一个事件：记流水、判窗口、算选项。
+   *
+   * `defer` 只算"这一步会发生什么"，不占用当前弹窗位——给 tick 里"今年名额
+   * 已用完、需要顺延"的情况用。真正弹出时会再走一次这里，因为中间玩家可能
+   * 已经做过一次抉择，选项的解锁状态要按最新的五维重算。
+   */
+  /**
+   * 事件属于哪条通道。
+   *
+   * `life` = 落在你自己身上的人生节点，`era` = 外面发生的事。
+   * `conditional` 按触发器分流：按年龄触发的是"落在你身上的事"（拆迁、征地、
+   * 灵活就业），按年份触发的是"那年的大事"（双减、比特币）。
+   */
+  private channelOf(event: EventDef): DecisionChannel {
+    if (event.layer === 'stage') return 'life';
+    if (event.layer === 'era') return 'era';
+    return event.trigger.type === 'age' ? 'life' : 'era';
+  }
+
+  /**
+   * 人生节点排在时代事件前面。
+   *
+   * 同一年里，先讲你自己，再讲外面。`findDueEvents` 只按 ledgerWeight 排序，
+   * 而 era 的权重普遍 4–6、stage 只有 2–4，于是人生节点永远排在时代事件后面
+   * ——上一轮"结婚被房改挤掉"就是这个排序的产物。
+   */
+  private sortByChannel(events: readonly EventDef[]): EventDef[] {
+    const rank = (ev: EventDef): number => (this.channelOf(ev) === 'life' ? 0 : 1);
+    return [...events].sort(
+      (a, b) => rank(a) - rank(b) || b.ledgerWeight - a.ledgerWeight || a.id.localeCompare(b.id),
+    );
+  }
+
+  private trigger(event: EventDef, kind: PendingEvent['kind'] = 'event', defer = false): PendingEvent | null {
     this.firedIds.add(event.id);
 
     const judgement = judgeWindow({
@@ -672,9 +809,16 @@ export class Game {
 
     // 账本只记时代窗口；人生阶段事件没有"窗口"可比。
     // "路过"也不再无脑入账：只留权重高的、或确实擦边的，否则账本被 8 条路过灌满。
+    //
+    // `ledgerWeight === 0` 是"这件事不是时代窗口，别记进账本"的显式标记，
+    // 用于童年记忆和晚年日常（2008 年奥运会、2020 年扫码进菜场）。
+    // 它们当然也是"时代"，但要是记进账本，`hitRate` 和 `earlyHits` 会被它们
+    // 顶起来——实测加完 19 条新内容后 caught 从 8.0 跳到 9.3，
+    // 「少年得志」「赶上每一次浪潮」直接失衡，而这两个称号讲的是
+    // 恢复高考、房改、入世那种"决定了一辈子走向"的窗口。
     const worthLedger =
       judgement.verdict !== 'passedBy' || event.ledgerWeight >= 4 || judgement.gapMonths <= 24;
-    if (event.layer === 'era' && worthLedger) {
+    if (event.layer === 'era' && event.ledgerWeight > 0 && worthLedger) {
       this.ledger = recordJudgement(this.ledger, {
         eventId: event.id,
         title: event.title,
@@ -727,9 +871,53 @@ export class Game {
       };
     });
 
-    this.pending = { event, judgement: { ...judgement, verdict }, text, choices, kind };
+    const pending: PendingEvent = { event, judgement: { ...judgement, verdict }, text, choices, kind };
+    if (defer) return pending;
+    this.pending = pending;
     this.phase = 'awaitingChoice';
     return this.pending;
+  }
+
+  /**
+   * 播报级的人生阶段事件：按 default 选项把后果结算掉。
+   *
+   * `default: true` 在数据里本来就是"没人特意去选、但日子会往这边走"的那一项，
+   * 正好用来承接"这件事发生了，只是没让玩家停下来拍板"。
+   *
+   * 概率型选项不掷骰子，取第一个分支：播报级事件不该再消耗随机流，
+   * 否则同一个种子会因为某条事件是否降级而整条时间线错位。
+   */
+  private settleSilently(event: EventDef): void {
+    const def = event.choices.find((c) => c.default) ?? event.choices[0];
+    if (!def) return;
+    let effects = def.effects;
+    const setFlags = [...(def.setFlags ?? [])];
+    if (def.probability && def.probability.length > 0) {
+      const first = def.probability[0]!;
+      effects = mergeEffects(def.effects, first.effects);
+      setFlags.push(...(first.setFlags ?? []));
+    }
+    if (effects) {
+      // 软边结算：播报级事件是慢慢渗进来的日常，不是一次拍板，
+      // 所以走 applySoftEffects（越接近上下限越推不动），而不是硬加减。
+      this.stats = applySoftEffects(this.stats, scaleEffects(effects, SILENT_SETTLE_SCALE));
+    }
+    const before = new Set(this.flags);
+    for (const f of def.clearFlags ?? []) this.flags = this.flags.filter((x) => x !== f);
+    for (const f of setFlags) if (!this.flags.includes(f)) this.flags.push(f);
+    for (const f of setFlags) if (!this.flagYears.has(f)) this.flagYears.set(f, this.year);
+    // 婚姻/孩子这类 flag 会真的改变家庭结构，必须走同一条路，
+    // 否则「生孩子」结算了 child_born 却没有孩子出现在家人栏里。
+    this.syncFamily(setFlags);
+    for (const f of setFlags) {
+      if (before.has(f)) continue;
+      if (f === 'relocated') this.counters.moves += 1;
+      if (f === 'self_employed') {
+        this.counters.startups += 1;
+        this.counters.jobChanges += 1;
+      }
+      if (f === 'stable_job' || f === 'vocational') this.counters.jobChanges += 1;
+    }
   }
 
   private buildFamily(): FamilyMember[] {

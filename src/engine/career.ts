@@ -26,8 +26,21 @@ export function deriveCareer(flags: readonly string[], age: number, urban: boole
   if (age >= 60 || flags.includes('retired')) {
     return { id: 'retired', label: '退休', wageMultiple: 0.45, savingBias: 0, working: false, retired: true };
   }
-  if (flags.includes('in_school') && age < 24 && !flags.includes('stable_job')) return STUDENT;
-  if (age < 18) return STUDENT;
+  // 在读判定按学制算，不再看 `in_school` 这个 flag。
+  //
+  // 旧实现是 `in_school && age < 24`。而 in_school 在 6 岁「上学」时设上，
+  // 全目录没有一处 clearFlags 它——于是 15 岁辍学的人到 23 岁都还显示「学生」，
+  // 「第一份工资」这个里程碑被统一推到 24 岁，18–23 岁也没有一分钱财富漂移。
+  // 现在按"义务教育 / 高中阶段 / 高等教育"三段学制判：
+  //   · 15 岁前一定在读（游戏里没有更早的辍学入口）
+  //   · 15–17 岁只有读了高中或职高技校才是在读
+  //   · 18–21 岁只有考上大学（含专科）才是在读，读满就是毕业
+  if (!flags.includes('stable_job')) {
+    const inBasic = age < 15;
+    const inHigh = age < 18 && (flags.includes('in_high_school') || flags.includes('vocational'));
+    const inCollege = age < 22 && flags.includes('higher_ed');
+    if (inBasic || inHigh || inCollege) return STUDENT;
+  }
   if (flags.includes('edtech')) {
     return { id: 'edtech', label: '教培老师', wageMultiple: 1.15, savingBias: 0.4, working: true, retired: false };
   }
@@ -45,6 +58,17 @@ export function deriveCareer(flags: readonly string[], age: number, urban: boole
   }
   if (flags.includes('college')) {
     return { id: 'office', label: '公司职员', wageMultiple: 1.2, savingBias: 0.4, working: true, retired: false };
+  }
+  // 专科：之前没有这一档，选了「报专科」的人在职业推导里等同没上过大学
+  if (flags.includes('junior_college')) {
+    return {
+      id: 'technician',
+      label: urban ? '技术员' : '乡镇技术员',
+      wageMultiple: 0.95,
+      savingBias: 0.35,
+      working: true,
+      retired: false,
+    };
   }
   if (flags.includes('migrant')) {
     return { id: 'migrant', label: '外来务工', wageMultiple: 0.8, savingBias: 0.6, working: true, retired: false };

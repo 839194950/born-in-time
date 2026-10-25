@@ -10,6 +10,7 @@ export type TrackEvent =
   | 'choice' // 做出一个抉择
   | 'ending' // 走到结局
   | 'save_png' // 保存结局图
+  | 'save_png_fail' // 保存被浏览器拦下，走了长按保存
   | 'copy_text' // 复制文字版
   | 'redraw' // 再抽一年
   | 'return'; // 次日回访

@@ -101,8 +101,9 @@ describe('主引擎：抉择', () => {
     const pick = g.snapshot.pendingEvent!.choices.find((c) => c.state === 'available');
     g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
 
-    expect(g.snapshot.phase).toBe('playing');
-    expect(g.snapshot.pendingEvent).toBeNull();
+    // 同一年可能还排着第二件事（人生节点 + 时代事件两条通道），所以不能断言
+    // 一定回到 playing——只断言"刚选过的那条不会立刻又弹出来"。
+    expect(g.snapshot.pendingEvent?.event.id).not.toBe(eventId);
 
     let again = 0;
     for (let i = 0; i < 40; i++) {
@@ -147,7 +148,7 @@ describe('主引擎：抉择', () => {
       id: 'test_near_miss',
       layer: 'era',
       trigger: { type: 'year', year: 2000 },
-      windowAge: [13, 15],
+      windowAge: [8, 9],
       title: '差一步的浪',
       body: '你站在门口。',
       ledgerWeight: 4,
@@ -160,7 +161,7 @@ describe('主引擎：抉择', () => {
 
     const pending = g.snapshot.pendingEvent!;
     expect(pending.judgement.verdict).toBe('nearMiss');
-    expect(pending.judgement.gapMonths).toBe(36);
+    expect(pending.judgement.gapMonths).toBe(12);
     expect(pending.choices).toHaveLength(0);
     expect(() => g.resolve('a')).toThrow();
 
@@ -310,16 +311,17 @@ describe('回归：阶段事件不走窗口判定（差一年误判）', () => {
           stagePendings += 1;
           expect(pending.judgement.verdict).toBe('caught');
           expect(pending.choices.length).toBeGreaterThan(0);
-        }
-        const pick = pending.choices.find((c) => c.state === 'available');
+        }        const pick = pending.choices.find((c) => c.state === 'available');
         g.resolve(pick ? pick.id : CONTINUE_CHOICE_ID);
       } else {
         g.tick();
       }
     }
     expect(g.snapshot.phase).toBe('dead');
-    // 24 个阶段事件只有 8 个保留弹窗（其余降级为一行播报），个别年份可能被别的弹窗占掉
-    expect(stagePendings).toBeGreaterThanOrEqual(7);
+    // 24 个阶段事件只有 8 个保留弹窗（其余降级为一行播报），个别年份可能被别的弹窗占掉。
+    // 6 而不是 7：21 岁的「毕业去向」现在要求 higher_ed（上过大学），
+    // 这一局没上大学，少的那一次正是过去"没上大学却在宿舍讨论去向"的那个 bug。
+    expect(stagePendings).toBeGreaterThanOrEqual(6);
   });
 });
 

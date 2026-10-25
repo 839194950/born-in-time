@@ -46,6 +46,7 @@ function YearProgress({
   const [pct, setPct] = useState(0);
   const elapsedRef = useRef(0);
   const lastRef = useRef(0);
+  const speedRef = useRef(speed);
   const running = phase === 'playing' && !paused;
 
   // 换年：进度清零重算
@@ -54,6 +55,18 @@ function YearProgress({
     lastRef.current = performance.now();
     setPct(0);
   }, [year]);
+
+  // 变速：按"已过的比例"换算已过时间。
+  // 直接沿用旧的 elapsed 会让进度条瞬间跳满——1× 下走了 30 秒（50%），
+  // 切到 16× 时新分母只有 3.75 秒，30 秒除以 3.75 秒就是 800%。
+  useEffect(() => {
+    const prevDuration = YEAR_MS / speedRef.current;
+    const ratio = Math.min(1, elapsedRef.current / prevDuration);
+    elapsedRef.current = ratio * (YEAR_MS / speed);
+    speedRef.current = speed;
+    lastRef.current = performance.now();
+    setPct(ratio * 100);
+  }, [speed]);
 
   useEffect(() => {
     lastRef.current = performance.now();
@@ -91,7 +104,9 @@ function YearProgress({
 }
 
 export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; actions: PlayActions }) {
-  const [speed, setSpeed] = useState<number>(1);
+  // 默认 2×：1× 下一年 60 秒，第一个弹窗在 6 岁——新玩家要盯着画面等 6 分钟
+  // 才有第一件事可做。2× 把它压到 3 分钟，想慢的可以调回 1×。
+  const [speed, setSpeed] = useState<number>(2);
   const [paused, setPaused] = useState(false);
   const [auto, setAuto] = useState(false);
   const [muted, setMutedState] = useState(() => isMuted());
@@ -102,10 +117,37 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
   const phase = snapshot.phase;
   const pending = snapshot.pendingEvent;
 
+  /** 今年已经走过的比例（0–1）。暂停、变速、弹窗都靠它接续。 */
+  const yearProgressRef = useRef(0);
+
+  // 换年清零
+  useEffect(() => {
+    yearProgressRef.current = 0;
+  }, [snapshot.year]);
+
   useEffect(() => {
     if (phase !== 'playing' || paused) return;
-    const id = window.setInterval(() => actionsRef.current.tick(), YEAR_MS / speed);
-    return () => window.clearInterval(id);
+    const duration = YEAR_MS / speed;
+    const startedAt = performance.now();
+    const base = yearProgressRef.current;
+    let fired = false;
+    const timer = window.setTimeout(() => {
+      fired = true;
+      actionsRef.current.tick();
+    }, Math.max(0, duration * (1 - base)));
+    return () => {
+      window.clearTimeout(timer);
+      // 没走到终点就退出（暂停 / 变速 / 弹窗弹出）：把这一段走过的比例记下来，
+      // 下次从这里接着走。
+      //
+      // 以前是 `setInterval(tick, YEAR_MS/speed)`，依赖一变就整段重开——
+      // 于是"暂停一下再继续"等于这一年白等，而顶部进度条那边是记着已走时间的，
+      // 两处直接对不上：条走到 100% 停在那儿，实际还要再等一整年。
+      if (!fired) {
+        const walked = duration > 0 ? (performance.now() - startedAt) / duration : 1;
+        yearProgressRef.current = Math.min(1, base + walked * (1 - base));
+      }
+    };
   }, [phase, paused, speed]);
 
   useEffect(() => {
@@ -171,7 +213,13 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
     (m) => m.deathYear === undefined || m.deathYear > snapshot.year,
   ).length;
 
-  const peers = useMemo(() => simulatePeers(snapshot.birth, snapshot.seed), [snapshot.birth, snapshot.seed]);
+  // 对照组要跑完三条完整人生（本机 ~34ms，低端手机更久）。它由 App 在开局时预热，
+  // 这里命中缓存；依赖写成具体字段，避免每次快照都因为 birth 是新对象而重算。
+  const peers = useMemo(
+    () => simulatePeers(snapshot.birth, snapshot.seed),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [snapshot.seed, snapshot.birth.year, snapshot.birth.name, snapshot.birth.month],
+  );
   const peerRank = useMemo(() => {
     const mine = snapshot.stats.happiness;
     const ahead = peers.filter((p) => {

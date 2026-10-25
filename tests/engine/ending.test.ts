@@ -65,17 +65,22 @@ describe('命型判定', () => {
     const a = agg({ nearMiss: 0, caught: 1, hitRate: 0.2, birthTierRank: 4, finalWealth: 35 });
     const title = TITLES.find((t) => t.test(a))!;
     expect(title.name).toBe('高开低走的人');
-    expect(title.blurb(a)).not.toMatch(/烂|失败|可惜/);
+    expect(title.blurb(a, 'male')).not.toMatch(/烂|失败|可惜/);
   });
 
   it('命中集中在 35 岁前 / 40 岁后', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 6, passedBy: 4, hitRate: 0.6, earlyHits: 6, lateHits: 0, deathAge: 68 }))).toBe('少年得志');
-    expect(titleOf(agg({ nearMiss: 0, caught: 5, passedBy: 3, hitRate: 0.57, earlyHits: 0, lateHits: 3, deathAge: 68 }))).toBe('大器晚成');
+    // 门槛跟着内容一起改了（见 titles.ts）：少年得志 earlyHits 6→8，
+    // 大器晚成 lateHits 3→5。夹具同步，否则测的是已经不存在的判据。
+    expect(titleOf(agg({ nearMiss: 0, caught: 8, passedBy: 4, hitRate: 0.6, earlyHits: 8, lateHits: 0, deathAge: 68 }))).toBe('少年得志');
+    expect(titleOf(agg({ nearMiss: 0, caught: 5, passedBy: 3, hitRate: 0.57, earlyHits: 0, lateHits: 5, deathAge: 68 }))).toBe('大器晚成');
   });
 
   it('折腾的人需要转行加迁徙够多且财富起伏大', () => {
-    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, jobChanges: 3, moves: 2, startups: 1, wealthVariance: 300 }))).toBe('折腾的人');
-    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, jobChanges: 3, moves: 2, startups: 1, wealthVariance: 10 }))).not.toBe('折腾的人');
+    // 门槛 200 → 350（见 titles.ts 的注释：wealthVariance 中位数本身就是 229，
+    // 200 等于"比一半人稍微动一点"）。这里同步改夹具，并把"刚好在旧门槛上"的
+    // 300 改成明确不该命中的反例。
+    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, jobChanges: 3, moves: 2, startups: 1, wealthVariance: 400 }))).toBe('折腾的人');
+    expect(titleOf(agg({ nearMiss: 0, caught: 1, hitRate: 0.2, jobChanges: 3, moves: 2, startups: 1, wealthVariance: 300 }))).not.toBe('折腾的人');
   });
 
   it('守一座城：没迁徙、没怎么换工作', () => {

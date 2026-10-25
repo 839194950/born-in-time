@@ -22,8 +22,8 @@ export const STAT_TUNING = {
   /** 55 岁后能力开始折旧（规格 §4.2「会被时代打折的存量」） */
   abilityDecayAge: 55,
   abilityDecayPerYear: -0.5,
-  /** 55 岁后亲情进入支出期（空巢，规格 §4.4） */
-  familyDecayAge: 55,
+  /** 25 岁后亲情进入维护期：各自成家，关系要花力气才维持得住 */
+  familyDecayAge: 25,
   familyDecayPerYear: -0.35,
   /** 长寿尾：常年选"养生/运动"的人可以真的多活几年 */
   longevityTailMax: 8,
@@ -35,6 +35,19 @@ export const STAT_TUNING = {
  * 否则连年选“拼事业”，四十年的 -2 会把人直接推到 0。#
  */
 export const FOCUS_EFFECT_SCALE = 0.4;
+
+/**
+ * 播报级人生事件的后果折算。
+ *
+ * 与年度重心同一个理由：玩家没有为这件事使劲，后果就不该按"亲手选择"的
+ * 全量落地。16 个阶段事件的默认项合计 +33 亲情、−15 财富——全额结算会把
+ * 「亲情」这条轴直接顶到均值 87（P10 79 / P90 94），一条所有局都贴在天花板
+ * 上的轴等于没有这条轴。
+ *
+ * 折算的是"力度"，不是"有没有发生"：setFlags / clearFlags 一律照常结算，
+ * 所以孩子、房子、离婚这些事实一个都不会丢。
+ */
+export const SILENT_SETTLE_SCALE = 0.4;
 
 export function scaleEffects(effects: Partial<Stats>, scale: number): Partial<Stats> {
   const out: Partial<Stats> = {};

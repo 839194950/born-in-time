@@ -154,6 +154,17 @@ describe('工资锚点', () => {
     expect(averageWage(1988)).toBeLessThan(1800);
   });
 
+  it('2005 年出生的人活到 2070 年，工资不能冻结在 2050', () => {
+    // `interpolate` 对超过末锚点的年份直接返回末值。锚点原本止于 2050，
+    // 而 2005 年生的人能活到 2075 前后——那批人一辈子的后半段会看着
+    // 一个不动的月薪（"2050 年平均工资"）。补了 2060/2070 两个推演锚点。
+    expect(averageWage(2060)).toBeGreaterThan(averageWage(2050));
+    expect(averageWage(2070)).toBeGreaterThan(averageWage(2060));
+    // 而且是逐年上涨，不是台阶
+    expect(averageWage(2055)).toBeGreaterThan(averageWage(2050));
+    expect(averageWage(2065)).toBeGreaterThan(averageWage(2060));
+  });
+
   it('把金额换算成当年几个月的工资', () => {
     // 1997 年 3000 元学费 ≈ 5.6 个月工资
     expect(wageMonths(3000, 1997)).toBe(6);

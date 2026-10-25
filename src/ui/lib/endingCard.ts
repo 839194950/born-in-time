@@ -51,7 +51,7 @@ export function buildPlainText(data: EndingCardData): string {
     ending.headline,
     `【${ending.title.name}】${ending.subtitle}`,
     '',
-    `享年 ${a.deathAge} 岁　｜　赶上 ${a.caught} / 差一年 ${a.nearMiss} / 路过 ${a.passedBy}　｜　财富最高 前${100 - Math.round(a.bestWealth)}%　｜　最幸福的一年 ${a.bestYear}`,
+    `享年 ${a.deathAge} 岁　｜　赶上 ${a.caught} / 差一年 ${a.nearMiss} / 路过 ${a.passedBy}　｜　财富最高 前${Math.max(1, 100 - Math.round(a.bestWealth))}%　｜　最幸福的一年 ${a.bestYear}`,
     '',
     '—— 生逢其时',
     `想知道 ${birth.year + (birth.year % 2 === 0 ? 1 : -1)} 年生的人这一局是什么命？把链接发给他：`,
@@ -105,13 +105,6 @@ function wrapLines(
 }
 
 /** 幸福色阶：固定 5 档，避免"看起来都一个颜色" */
-function happinessBand(h: number): string {
-  if (h < 35) return '#b9a68a';
-  if (h < 50) return '#cbb18e';
-  if (h < 65) return '#d9b97e';
-  if (h < 80) return '#d8bf6a';
-  return '#c8a53c';
-}
 
 export interface CardQr {
   size: number;
@@ -376,4 +369,4 @@ export function renderEndingCard(
   ctx.restore();
 }
 
-export { happinessBand };
+

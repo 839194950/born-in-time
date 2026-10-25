@@ -110,7 +110,16 @@ export const STAGE_EVENTS: EventDef[] = [
     layer: 'stage',
     trigger: { type: 'age', age: 18 },
     windowAge: [18, 18],
-    conditions: { flags: ['in_high_school'] },
+    // 统一高考 1977 年冬才恢复。没有这道年份闸门，1958 年出生的人会在
+    // 1976 年「参加高考」，紧接着 1977 年又赶上「恢复高考」——连着考两次。
+    // 上过大学（本科）的人也不再重考：1977 年那一届由 era_gaokao_restored_1977 负责。
+    //
+    // 下界从 1977 收到 1978：1977 年那一场是冬天临时恢复的特殊一届，由时代事件
+    // 独家负责。留着 1977 会让 1959 年生的人在 18 岁那年同时命中两条"高考"——
+    // 以前靠"一年只有一个抉择名额"把阶段事件静默吞掉，现在改成顺延不丢弃，
+    // 就会连着弹两次。把年份切开，比事后去重更干净。
+    yearRange: [1978, 9999],
+    conditions: { flags: ['in_high_school'], notFlags: ['college'] },
     title: '高考',
     body: '考场外站满了家长。这一场考试，在很长一段时间里被认为能决定一个人后面几十年。',
     choices: [
@@ -121,7 +130,7 @@ export const STAGE_EVENTS: EventDef[] = [
         lockedText: '分数够不上',
         effects: { ability: 6, wealth: -2, happiness: 2 },
         outcome: '你考上了，去了一个从没去过的城市。',
-        setFlags: ['college'],
+        setFlags: ['college', 'higher_ed'],
         default: true,
       },
       {
@@ -129,12 +138,18 @@ export const STAGE_EVENTS: EventDef[] = [
         label: '报专科',
         effects: { ability: 3, happiness: 1 },
         outcome: '你读了个专科，两年后毕业。',
+        // 专科也是高等教育。之前这一项不设任何 flag，于是专科毕业生在
+        // 职业推导里等同"没上过大学"，21 岁也拿不到"毕业去向"。
+        setFlags: ['junior_college', 'higher_ed'],
       },
       {
         id: 'retake',
         label: '复读一年',
         effects: { ability: 3, happiness: -2, wealth: -1 },
         outcome: '你回到教室，又做了一年卷子。',
+        // 复读要真的能再考一次。以前这一项不设 flag、也没有 19 岁的第二场，
+        // 于是它比"报专科"严格更差——玩家读完"又做了一年卷子"，什么也没发生。
+        setFlags: ['retaking'],
       },
     ],
     ledgerWeight: 3,
@@ -146,7 +161,8 @@ export const STAGE_EVENTS: EventDef[] = [
     layer: 'stage',
     trigger: { type: 'age', age: 19 },
     windowAge: [19, 19],
-    conditions: { flags: ['college'] },
+    // 专科也选专业。以前只认 college，于是读专科的人没有这一格。
+    conditions: { flags: ['higher_ed'] },
     title: '选专业',
     body: '填志愿那天，家里围着一张报纸讨论。什么专业好，谁也说不准。',
     choices: [
@@ -175,10 +191,16 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_graduation',
-    priority: 2,
+    // priority 2 → 3：毕业去向是"留在大城市还是回老家"这种必须由玩家拍板的节点，
+    // 而且它的两个选项分别设 migrant / stable_job——降级成播报等于把这两条
+    // 职业路径的入口锁死（实测只有 21% 的人能靠别的路拿到）。
+    priority: 3,
     layer: 'stage',
     trigger: { type: 'age', age: 21 },
     windowAge: [21, 21],
+    // 之前没有任何条件，于是没上过大学的人在 21 岁也会读到
+    // "毕业前那几个月，宿舍里的人都在讨论去哪"——实测约四成玩家撞上。
+    conditions: { flags: ['higher_ed'] },
     title: '毕业去向',
     body: '毕业前那几个月，宿舍里的人都在讨论去哪。有人签了单位，有人还没着落。',
     choices: [
@@ -241,6 +263,9 @@ export const STAGE_EVENTS: EventDef[] = [
       {
         id: 'edtech',
         label: '去教培机构当老师',
+        // 1958 年生的人 23 岁是 1981 年，那会儿没有"课外辅导机构"这个行当。
+        // 用选项自带的时代开关置灰，而不是删掉——"看得见但选不了"本身就是叙事。
+        gate: { unlockYear: 1995, unlockText: '这时候还没有课外辅导这个行当' },
         requires: { statMin: { ability: 58 } },
         lockedText: '面试没通过',
         effects: { wealth: 4, ability: 2, health: -1 },
@@ -330,7 +355,10 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_child_birth',
-    priority: 2,
+    // priority 2 → 3：要不要孩子是整个中年唯一的"不可逆"节点，
+    // 也是孩子、学区房、孙辈整条线的总开关。降级成播报时它按默认项
+    // 直接设了 child_born，玩家连"再等等"都说不出口。
+    priority: 3,
     layer: 'stage',
     trigger: { type: 'age', age: 30 },
     windowAge: [30, 30],
@@ -446,7 +474,8 @@ export const STAGE_EVENTS: EventDef[] = [
     layer: 'stage',
     trigger: { type: 'age', age: 40 },
     windowAge: [40, 40],
-    conditions: { flags: ['has_home'] },
+    // 正文是"孩子大了，家里显得挤"——没有孩子的人不该读到这句。
+    conditions: { flags: ['has_home', 'child_born'] },
     title: '换个大点的房子',
     body: '孩子大了，家里显得挤。你开始看那些面积大一点、离单位远一点的房子。',
     choices: [
@@ -531,7 +560,8 @@ export const STAGE_EVENTS: EventDef[] = [
     layer: 'stage',
     trigger: { type: 'age', age: 48 },
     windowAge: [48, 48],
-    conditions: { notFlags: ['third_home'] },
+    // 学区房以有孩子为前提。以前只挡了"已经买过"，于是没孩子的人也会被中介劝着看学区房。
+    conditions: { flags: ['child_born'], notFlags: ['third_home'] },
     title: '学区房',
     body: '孩子要升学，学区房的价格摆在那里。中介说，买这里的房子，等于买一张入场券。',
     choices: [
@@ -615,7 +645,10 @@ export const STAGE_EVENTS: EventDef[] = [
   },
   {
     id: 'stage_spouse_change',
-    priority: 2,
+    // priority 2 → 3：婚姻裂开是这条人生线里情绪浓度最高的一个岔口，
+    // 而且"各自过"会设 divorced——降级成播报时它永远默认"一起扛"，
+    // 等于这个选项不存在。
+    priority: 3,
     layer: 'stage',
     trigger: { type: 'age', age: 58 },
     windowAge: [58, 58],

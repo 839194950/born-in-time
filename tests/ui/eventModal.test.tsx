@@ -67,12 +67,15 @@ describe('事件弹窗', () => {
     expect(html).toContain('财富 −2');
   });
 
-  it('置灰项仍然可见，写明原因且不可聚焦', () => {
+  it('置灰项仍然可见、写明原因，且键盘也能聚焦（读得到原因）', () => {
     const html = renderToString(<EventModal pending={caught} stats={STATS} onPick={() => {}} onContinue={() => {}} />);
     expect(html).toContain('报考专科');
     expect(html).toContain('成绩够不上');
     expect(html).toContain('aria-disabled="true"');
-    expect(html).toContain('tabindex="-1"');
+    // 之前是 tabindex="-1"：键盘用户永远听不到"为什么选不了"，
+    // 而"看得见但选不了"正是这个游戏的设计意图。
+    expect(html).toContain('tabindex="0"');
+    expect(html).not.toContain('tabindex="-1"');
   });
 
   it('差一年不给选项，只给“继续”与差距月数', () => {

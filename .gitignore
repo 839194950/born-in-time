@@ -6,3 +6,5 @@ dist
 .vite
 assets-src/sprites/
 assets-src/keyed2/
+# vite 加载配置时留下的临时文件，每次构建都可能重新生成
+vite.config.ts.timestamp-*

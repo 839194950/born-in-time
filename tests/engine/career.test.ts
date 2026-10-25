@@ -4,7 +4,15 @@ import { interestLevel, summarizeInterests } from '../../src/engine/interests';
 
 describe('职业推导', () => {
   it('学生、体制内、个体、灵活就业、退休按 flag 与年龄区分', () => {
-    expect(deriveCareer(['in_school'], 15, true).id).toBe('student');
+    // 在读按学制判：义务教育 6–14、高中阶段 15–17（要真读了高中/职高）、
+    // 高等教育 18–21（要真考上了）。`in_school` 不再参与——它在 6 岁设上之后
+    // 全目录没有一处清理，曾让 15 岁辍学的人到 23 岁都显示「学生」。
+    expect(deriveCareer([], 12, true).id).toBe('student');
+    expect(deriveCareer(['in_high_school'], 16, true).id).toBe('student');
+    expect(deriveCareer(['vocational'], 16, true).id).toBe('student');
+    expect(deriveCareer(['higher_ed'], 20, true).id).toBe('student');
+    expect(deriveCareer(['in_school'], 20, true).id).not.toBe('student');
+    expect(deriveCareer(['vocational'], 20, true).id).toBe('vocational');
     expect(deriveCareer(['stable_job'], 30, true).label).toContain('单位职员');
     expect(deriveCareer(['self_employed'], 30, false).id).toBe('self');
     expect(deriveCareer(['gig_worker'], 30, false).id).toBe('gig');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PendingEvent } from '../../engine/game';
 import { STAT_LABEL } from '../../engine/format';
 import { STAT_MAX, type StatKey, type Stats } from '../../engine/types';
@@ -12,15 +12,21 @@ const VERDICT_CLASS: Record<string, string> = {
   passedBy: 'badge-passed',
 };
 
-/** 差一年的说法按“差多少、差在哪边”分级，不再一句话用到底 */
+/**
+ * 差一年的说法分两种方向：早了够不着、晚了没赶上。
+ *
+ * 注意这里只有两个分支。`judgeWindow` 从 2026-10-24 起改按整年判定，
+ * `gapMonths` 恒为 12 的整数倍——以前那个 `gap <= 14` 的"只差几个月"分支
+ * 和最后一行输出的是同一句话，等于写了两遍。
+ * 也不再出现"只差 11 个月"这种精度：这个游戏抽的是出生年份，同一年出生的人
+ * 应该被判成同样的结果。
+ */
 export function nearMissLine(judgement: PendingEvent['judgement'], windowAge: [number, number]): string {
   const gap = judgement.gapMonths;
-  if (gap <= 14) return `你晚了 ${gapText(gap)}。门里的事，这一回和你没关系。`;
-  const start = windowAge[0] * 12;
-  if (judgement.ageMonths < start) {
-    return `这件事来的时候，你才 ${judgement.age} 岁，还差 ${gapText(gap)} 才够得着。等你够着了，它已经过去了。`;
-  }
-  return `你晚了 ${gapText(gap)}。等你走到跟前，这扇门已经关上了。`;
+  const tooYoung = judgement.ageMonths < windowAge[0] * 12;
+  return tooYoung
+    ? `这件事来的时候，你才 ${judgement.age} 岁，还差 ${gapText(gap)} 才够得着。等你够着了，它已经过去了。`
+    : `你晚了 ${gapText(gap)}。等你走到跟前，这扇门已经关上了。`;
 }
 
 export function EventModal({
@@ -35,7 +41,40 @@ export function EventModal({
   onContinue: () => void;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const { event, judgement, text, choices } = pending;
+
+  // 弹窗是模态的，键盘用户必须能进来。旧版没有初始焦点：弹窗弹出后
+  // 焦点还留在页面下面的按钮上，Tab 要穿过整个页面才够得到选项。
+  useEffect(() => {
+    const root = modalRef.current;
+    if (!root) return;
+    // 优先落在第一个可选选项上。「差一年」的弹窗没有选项（只有"继续过日子"），
+    // 全部置灰时也没有 available——这两种情况以前焦点会留在遮罩后面，
+    // 键盘用户既进不来、也听不到"为什么选不了"。退回到弹窗里第一个可聚焦元素。
+    const target =
+      root.querySelector<HTMLElement>('[data-choice="available"]') ??
+      root.querySelector<HTMLElement>('button, [href], textarea');
+    target?.focus();
+  }, [event.id]);
+
+  /** Tab 不跑出弹窗：否则键盘用户会掉到被遮住的页面上 */
+  const trapTab = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key !== 'Tab') return;
+    const nodes = modalRef.current?.querySelectorAll<HTMLElement>('button, [href], textarea');
+    if (!nodes || nodes.length === 0) return;
+    const list = Array.from(nodes);
+    const first = list[0]!;
+    const last = list[list.length - 1]!;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
   const badgeText =
     pending.kind === 'reflection' ? '停一停' : pending.kind === 'daily' ? '日常' : verdictText(judgement.verdict);
   const badgeClass =
@@ -43,7 +82,14 @@ export function EventModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" role="dialog" aria-modal="true" aria-label={event.title}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={event.title}
+        ref={modalRef}
+        onKeyDown={trapTab}
+      >
         <div className="modal-head">
           <span className={`badge ${badgeClass}`}>{badgeText}</span>
           <h2>{event.title}</h2>
@@ -94,7 +140,10 @@ export function EventModal({
                   type="button"
                   className={`choice${locked ? ' is-locked' : ''}`}
                   aria-disabled={locked}
-                  tabIndex={locked ? -1 : 0}
+                  data-choice={locked ? 'locked' : 'available'}
+                  // 置灰项也要能用键盘聚焦：这个游戏的设计意图就是"看得见但选不了"，
+                  // 键盘用户如果连聚焦都做不到，就只剩"看不见也选不了"。
+                  tabIndex={0}
                   onClick={() => (locked ? setNotice(choice.reason ?? '现在选不了') : onPick(choice.id))}
                 >
                   <span className="choice-label">{choice.label}</span>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GENDER_LABEL } from '../../data/labels';
 import type { GameSnapshot } from '../../engine/game';
 import { setLatestMessage, listRecords, type PastRecord } from '../../engine/save';
@@ -8,6 +8,7 @@ import { simulatePeers } from '../../engine/peers';
 import { TIER_LABEL } from '../../data/labels';
 import type { EndingCardData } from '../lib/endingCard';
 import { StatBar } from '../components/StatBar';
+import { Timeline } from '../components/Timeline';
 import { loadCollection, mergeCaught, titleOfEvent } from '../lib/collection';
 
 const AXES: readonly { left: AxisKey; right: AxisKey; leftLabel: string; rightLabel: string }[] = [
@@ -35,10 +36,13 @@ export function axisPairs(axes: Record<AxisKey, number>): AxisPair[] {
 export function ReviewScreen({
   snapshot,
   data,
+  onBack,
   onRestart,
 }: {
   snapshot: GameSnapshot;
   data: EndingCardData;
+  /** 回结局卡：玩家看完复盘常想回去保存图片，之前没有路回去 */
+  onBack?: () => void;
   onRestart: () => void;
 }) {
   const [message, setMessage] = useState('');
@@ -56,6 +60,9 @@ export function ReviewScreen({
           {`${snapshot.birth.name} · ${snapshot.birth.year} · ${snapshot.birth.province}${snapshot.birth.urban ? '城市' : '农村'} · ${GENDER_LABEL[snapshot.birth.gender]}`}
         </p>
         <p className="review-title">{`【${data.ending.title.name}】${data.ending.headline}`}</p>
+        <p className="review-blurb">
+          {data.ending.title.blurb(data.ending.aggregate, snapshot.birth.gender)}
+        </p>
       </header>
 
       <section className="review-block">
@@ -120,6 +127,18 @@ export function ReviewScreen({
           </ul>
         )}
       </section>
+
+      {/* 完整的人生纪录。
+          游戏里只显示最近 10 条，而 snapshot.timeline 有一百多条——
+          结局之后正是最想回头看的时候，之前却一条都看不到。 */}
+      {snapshot.timeline.length > 0 && (
+        <section className="review-block">
+          <h2>{`这一年一年的（${snapshot.timeline.length} 条）`}</h2>
+          <div className="review-timeline">
+            <Timeline entries={snapshot.timeline} limit={snapshot.timeline.length} hideTitle />
+          </div>
+        </section>
+      )}
 
       {snapshot.interests.length > 0 && (
         <section className="review-block">
@@ -210,6 +229,11 @@ export function ReviewScreen({
       <CollectionBlock ledger={snapshot.ledger} />
 
       <div className="actions">
+        {onBack && (
+          <button type="button" className="btn" onClick={onBack}>
+            回到结局卡
+          </button>
+        )}
         <button type="button" className="btn-primary" onClick={onRestart}>
           再抽一年
         </button>
@@ -223,10 +247,17 @@ export function ReviewScreen({
  * 想凑齐「房改末班车」「不再包分配」的人，会自己再去抽一年。
  */
 function CollectionBlock({ ledger }: { ledger: readonly { eventId: string; verdict: string }[] }) {
-  const { state, newly } = useMemo(() => {
+  // 副作用必须在 effect 里做，不能在 render 期间写 localStorage：
+  // StrictMode 下 render 会跑两次，第二次 mergeCaught 已经没有"新增"，
+  // 于是"这一局新点亮了……"这句提示会被自己吞掉。
+  const [merged, setMerged] = useState<{ state: { caught: string[]; total: number }; newly: string[] } | null>(null);
+  useEffect(() => {
     const caught = ledger.filter((e) => e.verdict === 'caught').map((e) => e.eventId);
-    return mergeCaught(caught);
+    setMerged(mergeCaught(caught));
   }, [ledger]);
+
+  const state = merged?.state ?? { caught: [], total: 0 };
+  const newly = merged?.newly ?? [];
   const owned = useMemo(() => new Set(loadCollection()), [state]);
   const pct = Math.round((state.caught.length / Math.max(1, state.total)) * 100);
 

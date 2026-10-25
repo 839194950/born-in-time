@@ -131,7 +131,7 @@ export default function BirthScreen({
     <main className="screen birth-screen" data-era={eraOfYear(birth.year).id}>
       <header className="birth-head">
         <h1>生逢其时</h1>
-        <p className="sub">从恢复高考那年开始抽，抽到哪一年，就过哪一年的人生。</p>
+        <p className="sub">{`从 ${YEAR_FROM} 年到 ${YEAR_TO} 年，抽到哪一年，就过哪一年的人生。`}</p>
       </header>
 
       <div className={`year-reel${rolling ? ' is-rolling' : ''}`}>

@@ -4,48 +4,57 @@ import { judgeWindow, verdictText } from '../../src/engine/window';
 const gaokao = { eventYear: 1999, windowAge: [17, 19] as [number, number] };
 
 describe('judgeWindow：窗口内', () => {
-  it('年龄落在窗口内就是赶上，gapMonths 为 0', () => {
-    expect(judgeWindow({ birthYear: 1979, birthMonth: 12, ...gaokao })).toMatchObject({
+  it('年份差落在窗口内就是赶上，gapMonths 为 0', () => {
+    expect(judgeWindow({ birthYear: 1980, birthMonth: 12, ...gaokao })).toMatchObject({
       verdict: 'caught',
       gapMonths: 0,
     });
     expect(judgeWindow({ birthYear: 1980, birthMonth: 8, ...gaokao }).verdict).toBe('caught');
     expect(judgeWindow({ birthYear: 1981, birthMonth: 9, ...gaokao }).verdict).toBe('caught');
+    expect(judgeWindow({ birthYear: 1982, birthMonth: 1, ...gaokao }).verdict).toBe('caught');
   });
 
-  it('age 是整周岁', () => {
-    expect(judgeWindow({ birthYear: 1981, birthMonth: 9, ...gaokao }).age).toBe(17);
-    expect(judgeWindow({ birthYear: 1979, birthMonth: 12, ...gaokao }).age).toBe(19);
+  it('age 是年份差（同年出生的人一致，不受出生月份影响）', () => {
+    expect(judgeWindow({ birthYear: 1981, birthMonth: 1, ...gaokao }).age).toBe(18);
+    expect(judgeWindow({ birthYear: 1981, birthMonth: 12, ...gaokao }).age).toBe(18);
+    expect(judgeWindow({ birthYear: 1979, birthMonth: 12, ...gaokao }).age).toBe(20);
+  });
+
+  it('出生月份不改变判定结果', () => {
+    for (const birthYear of [1979, 1980, 1981, 1982, 1983]) {
+      const verdicts = new Set(
+        Array.from({ length: 12 }, (_, i) =>
+          judgeWindow({ birthYear, birthMonth: i + 1, ...gaokao }).verdict,
+        ),
+      );
+      expect(verdicts.size, `${birthYear} 年生`).toBe(1);
+    }
   });
 });
 
 describe('judgeWindow：边缘带', () => {
-  it('差 3 个月算差一年，且准确报出月数', () => {
-    expect(judgeWindow({ birthYear: 1982, birthMonth: 9, ...gaokao })).toMatchObject({
+  it('差 1 年算差一年，报出 12 个月', () => {
+    expect(judgeWindow({ birthYear: 1983, birthMonth: 9, ...gaokao })).toMatchObject({
       verdict: 'nearMiss',
-      gapMonths: 3,
+      gapMonths: 12,
+    });
+    expect(judgeWindow({ birthYear: 1979, birthMonth: 3, ...gaokao })).toMatchObject({
+      verdict: 'nearMiss',
+      gapMonths: 12,
     });
   });
 
-  it('超上界但在 3 年内也算差一年', () => {
-    const r = judgeWindow({ birthYear: 1977, birthMonth: 3, ...gaokao });
-    expect(r.verdict).toBe('nearMiss');
-    expect(r.gapMonths).toBe(28);
+  it('恰好卡在 24 个月仍算差一年，25 个月就是路过', () => {
+    // 窗口上界 19：1980 年生是 19，1979 年生是 20（差 1 年），1978 年生是 21（差 2 年）
+    expect(judgeWindow({ birthYear: 1978, birthMonth: 6, ...gaokao }).verdict).toBe('nearMiss');
+    expect(judgeWindow({ birthYear: 1977, birthMonth: 6, ...gaokao }).verdict).toBe('passedBy');
+    expect(judgeWindow({ birthYear: 1977, birthMonth: 6, ...gaokao }).gapMonths).toBe(36);
   });
 
-  it('恰好卡在 36 个月仍算差一年，37 个月就是路过', () => {
-    // 窗口下界 204 个月；出生 1985-06 → 事件时 168 个月，差 36
-    expect(judgeWindow({ birthYear: 1985, birthMonth: 6, ...gaokao })).toMatchObject({
-      verdict: 'nearMiss',
-      gapMonths: 36,
-    });
-    expect(judgeWindow({ birthYear: 1985, birthMonth: 7, ...gaokao }).verdict).toBe('passedBy');
-  });
-
-  it('edgeYears 可覆盖默认 3 年', () => {
-    // 1986-06 生，1999 年时 156 个月，距下界 48 个月
-    expect(judgeWindow({ birthYear: 1986, birthMonth: 6, ...gaokao, edgeYears: 5 }).verdict).toBe('nearMiss');
-    expect(judgeWindow({ birthYear: 1986, birthMonth: 6, ...gaokao }).verdict).toBe('passedBy');
+  it('edgeYears 可覆盖默认 2 年', () => {
+    // 1977 年生 → 差 3 年；放宽到 3 年就成 nearMiss
+    expect(judgeWindow({ birthYear: 1977, birthMonth: 6, ...gaokao, edgeYears: 3 }).verdict).toBe('nearMiss');
+    expect(judgeWindow({ birthYear: 1977, birthMonth: 6, ...gaokao }).verdict).toBe('passedBy');
   });
 });
 
@@ -81,9 +90,8 @@ describe('judgeWindow：第二窗口', () => {
       windowAge: [20, 25] as [number, number],
       secondWindowAge: [60, 65] as [number, number],
     };
-    // 1988 年生，2025 年 36 岁：距第一窗口上界 11 年、距第二窗口下界 24 年
-    const r = judgeWindow({ birthYear: 1988, birthMonth: 6, ...two });
-    expect(r.verdict).toBe('passedBy');
+    // 1988 年生，2025 年 37 岁：距第一窗口上界 12 年、距第二窗口下界 23 年
+    expect(judgeWindow({ birthYear: 1988, birthMonth: 6, ...two }).verdict).toBe('passedBy');
     // 1998 年生，2025 年 27 岁：距第一窗口上界 2 年
     expect(judgeWindow({ birthYear: 1998, birthMonth: 6, ...two }).verdict).toBe('nearMiss');
   });

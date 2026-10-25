@@ -2848,7 +2848,10 @@ h1,
 .era-veil {
   position: fixed;
   inset: 0;
-  z-index: 45;
+  /* 必须在事件弹窗（.modal-backdrop z-index 40）之下。
+     时代字卡是 2 秒的过场，跨 1990 / 2010 那年如果正好弹事件，
+     盖在上面会让玩家点不到任何东西——和当年定格画面那个 bug 同一类。 */
+  z-index: 30;
   display: grid;
   place-items: center;
   background: rgba(30, 24, 18, 0.28);
@@ -3018,4 +3021,55 @@ h1,
     max-width: 920px;
     justify-self: center;
   }
+}
+
+/* 命型判语：一句第三人称的断语，放在结局标题下面。
+   之前 12 条判语写好了却没人用，而且全部硬编码「他」。 */
+.review-blurb {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+
+/* 键盘可达性。
+   全站 3000 行样式里没有任何一条 :focus 规则：浏览器默认焦点环在砖红底、
+   深红标签条上几乎看不见，键盘用户等于没有光标。 */
+:where(button, a, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* 置灰选项要能被聚焦，但视觉上仍然"选不了" */
+.choice.is-locked:focus-visible {
+  outline-style: dashed;
+  outline-color: var(--muted);
+}
+
+/* 保存失败时的兜底：把结局卡挂成 <img>，玩家长按即可保存 */
+.ending-fallback {
+  margin: 14px auto 0;
+  max-width: 360px;
+  text-align: center;
+}
+.ending-fallback img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  -webkit-touch-callout: default;
+}
+
+/* 复盘页的完整人生纪录：一百多条，给个滚动容器，别把页面撑成一万像素 */
+.review-timeline {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.review-timeline .timeline ol {
+  margin: 0;
+  padding: 0;
 }

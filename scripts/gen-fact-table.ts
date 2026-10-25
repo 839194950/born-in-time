@@ -112,6 +112,16 @@ const VERIFIED: Record<string, Verdict> = {
   era_ai_society_2045: { s: 'proj' },
 
   // —— 播报：日期级事实，全部核到官方/权威媒体 ——
+  // 1958–1976（2026-10-24 补）
+  bc_commune_1958: { s: 'ok', u: 'http://m.people.cn/n4/2016/0829/c2771-7480391.html' },
+  era_ration_1960: { s: 'ok', u: 'https://www.gov.cn/gongbao/content/1955/content_1622055.htm' },
+  bc_canteen_end_1961: { s: 'mech' },
+  bc_learn_from_leifeng_1963: { s: 'ok', u: 'https://www.people.com.cn/GB/shizheng/252/8932/8934/20030305/935342.html' },
+  bc_school_stop_1966: { s: 'mech' },
+  era_sibling_xiaxiang_1968: { s: 'ok', u: 'http://cpc.people.com.cn/BIG5/64162/64165/74856/75006/5194420.html' },
+  bc_satellite_1970: { s: 'ok', u: 'http://dangshi.people.com.cn/n1/2021/0909/c436975-32222801.html' },
+  era_recommend_college_1970: { s: 'ok', u: 'https://www.pku.edu.cn/detail/911.html' },
+  bc_tangshan_1976: { s: 'ok', u: 'https://www.hbdzj.gov.cn/hbdzj/webpage/view.jsp?id=2019082011301918910915' },
   bc_volleyball_1981: { s: 'ok', u: SPORT_VOLLEY },
   bc_cctv_gala_1983: { s: 'ok', u: GMW_CW },
   bc_olympic_gold_1984: { s: 'ok', u: SPORT_XU },

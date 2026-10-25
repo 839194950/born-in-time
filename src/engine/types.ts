@@ -111,6 +111,14 @@ export interface EventDef {
   layer: Layer;
   trigger: EventTrigger;
   windowAge: [number, number];
+  /**
+   * 事件只在这些年份之间成立。给按年龄触发的阶段事件用。
+   *
+   * 为什么需要：`stage_gaokao` 是 age 18 触发的，不看年份，于是 1958 年
+   * 出生的人在 1976 年「参加高考」——恢复高考是 1977 年 12 月的事。
+   * 阶段事件是"到了这个年纪必然发生"，但"必然"要以时代存在为前提。
+   */
+  yearRange?: [number, number];
   edgeYears?: number;
   secondWindowAge?: [number, number];
   conditions?: Requirement;
@@ -227,7 +235,11 @@ export interface TitleDef {
   /** 12 = 最稀有，1 = 兜底 */
   rarity: number;
   test: (a: EndingAggregate) => boolean;
-  blurb: (a: EndingAggregate) => string;
+  /**
+   * 判语。必须拿到性别——12 条判语全都是"他/她"开头的第三人称，
+   * 之前硬编码「他」，于是女性角色的结局卡上写着"他最好的那几年，来得很早"。
+   */
+  blurb: (a: EndingAggregate, gender: Gender) => string;
 }
 
 export interface Ending {

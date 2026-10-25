@@ -71,5 +71,12 @@ export default function DeathScreen() {
     );
   }
 
-  return <ReviewScreen snapshot={snapshot} data={data} onRestart={() => actions.reset()} />;
+  return (
+    <ReviewScreen
+      snapshot={snapshot}
+      data={data}
+      onBack={() => setStep('card')}
+      onRestart={() => actions.reset()}
+    />
+  );
 }

@@ -7,6 +7,119 @@ import type { EventDef } from '../../engine/types';
  * 年份以规格 §7.2 清单为准；同年多条会挤占唯一的抉择名额，因此把 2015–2017 的三件事分到三年。
  */
 export const ERA_EVENTS: EventDef[] = [
+  /*
+   * 1958–1976：这一段的人生，玩家只能是孩子。
+   *
+   * 生年范围是 1958–2005，所以「上山下乡」「推荐上大学」这些事发生时，
+   * 玩家本人还不到年龄——能赶上的只有他们的哥哥姐姐。因此这里不做成
+   * 「你的人生抉择」，而是做成「家里的抉择落在你身上」：口粮怎么分、
+   * 哥哥走不走、谁被推荐。年份固定，窗口卡住年龄段，只有对应的出生年份
+   * 才会遇到。年代氛围交给 broadcast.ts 的播报层。
+   */
+  {
+    id: 'era_ration_1960',
+    layer: 'era',
+    trigger: { type: 'year', year: 1960 },
+    windowAge: [0, 7],
+    title: '粮本上的数字',
+    body: '这一年，粮本上的定量又减了。母亲下锅前先把米量一遍，锅里添了野菜和麸子。饭做好了，她先给最小的那个盛。',
+    variants: {
+      rural: '这一年，队里分的口粮不够吃到明年。母亲把红薯干和野菜掺进玉米面里，蒸出来的饼子是黑的，嚼起来有沙子。',
+    },
+    choices: [
+      {
+        id: 'give_less',
+        label: '说自己不饿，让给更小的',
+        effects: { family: 3, health: -3, happiness: -1 },
+        outcome: '你说自己不饿。这句话你后来还说过很多次。',
+        default: true,
+      },
+      {
+        id: 'forage',
+        label: '跟着大人去挖野菜',
+        effects: { health: -1, ability: 1, family: 2 },
+        outcome: '你认得了七八种能吃的野菜。这个本事跟了你一辈子。',
+      },
+      {
+        id: 'exchange',
+        label: '拿家里的东西去换点细粮',
+        effects: { wealth: -2, health: 1, family: 2 },
+        outcome: '母亲把一对银耳环换成了半袋白面。她没再提过那对耳环。',
+      },
+    ],
+    ledgerWeight: 4,
+    source:
+      '1955 年 8 月国务院《市镇粮食定量供应暂行办法》实行按人定量、凭票供应；1959–1961 年粮食供应紧张，城乡普遍以瓜菜代粮',
+  },
+  {
+    id: 'era_sibling_xiaxiang_1968',
+    layer: 'era',
+    trigger: { type: 'year', year: 1968 },
+    windowAge: [4, 15],
+    // 农村青年本来就在农村，下乡这件事只发生在城镇家庭
+    conditions: { urban: true },
+    title: '哥哥姐姐要走了',
+    body: '这一年冬天，广播里一遍遍念着一句话：知识青年到农村去。家里的哥哥姐姐开始收拾行李，母亲把棉被拆了重做，往箱子里塞了两双新鞋。',
+    choices: [
+      {
+        id: 'help_pack',
+        label: '帮着收拾行李',
+        effects: { family: 4, happiness: -1 },
+        outcome: '你把自己攒的糖纸都塞进了他的箱子。他走的那天，站台上全是人。',
+      },
+      {
+        id: 'see_off',
+        label: '跟着去车站送',
+        effects: { family: 2, ability: 1, happiness: 1 },
+        outcome: '火车开了很久，你还站在站台上。那是你第一次看见这么多人一起哭。',
+        default: true,
+      },
+      {
+        id: 'hide',
+        label: '躲在家里，没去送',
+        effects: { happiness: -2, family: -1 },
+        outcome: '你躲在屋里听着外面的锣鼓声。后来他写信回来，你没回。',
+      },
+    ],
+    ledgerWeight: 4,
+    source:
+      '1968 年 12 月 22 日《人民日报》刊载“知识青年到农村去，接受贫下中农的再教育，很有必要”；1968–1978 年约 1600 万城镇知识青年上山下乡',
+  },
+  {
+    id: 'era_recommend_college_1970',
+    layer: 'era',
+    trigger: { type: 'year', year: 1970 },
+    windowAge: [8, 16],
+    title: '推荐上大学',
+    body: '这一年，大学重新开始招生。不考试，靠推荐：厂里、大队里开会定人。被定上的那个，胸前戴一朵大红花，坐卡车走，所有人都出来看。',
+    variants: {
+      rural: '这一年，大学重新开始招生。不考试，靠推荐：大队里开会定人。被定上的那个，胸前戴一朵大红花，坐拖拉机走，全村的人都出来看。',
+    },
+    choices: [
+      {
+        id: 'remember',
+        label: '把这件事记在心里',
+        effects: { ability: 2, happiness: 1 },
+        outcome: '你记住了那个人的名字，也记住了他走时的样子。',
+      },
+      {
+        id: 'ask',
+        label: '回去问大人，怎么才能被推荐',
+        effects: { ability: 3, happiness: -1 },
+        outcome: '大人说，先好好干活。你不太懂，但还是记住了。',
+      },
+      {
+        id: 'skip',
+        label: '觉得跟自己没关系',
+        effects: { happiness: 1, ability: -1 },
+        outcome: '你跑去看卡车了，别的事没往心里去。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 3,
+    source:
+      '1970 年 6 月 27 日，中共中央批转《北京大学、清华大学关于招生（试点）的请示报告》，废除统一考试，实行群众推荐、领导批准、学校复审，招收工农兵学员，学制二至三年',
+  },
   {
     id: 'era_gaokao_restored_1977',
     layer: 'era',
@@ -426,7 +539,10 @@ export const ERA_EVENTS: EventDef[] = [
     id: 'era_crypto_2013',
     layer: 'era',
     trigger: { type: 'year', year: 2013 },
-    windowAge: [24, 40],
+    // 下界 24→20：1993/1994 出生的人在 18–25 岁之间原本一条时代事件都没有
+    // （实测 9 年空档），而 2013 年那会儿在大学宿舍里第一次听说比特币的人，
+    // 本来就是二十出头的居多。
+    windowAge: [18, 40],
     title: '比特币',
     body: '这一年，新闻里第一次出现“比特币”。一个币从两百多美元涨到一千二，一个月后又跌回六百。有人说是骗局，有人说是未来。',
     variants: {
@@ -587,6 +703,10 @@ export const ERA_EVENTS: EventDef[] = [
     layer: 'era',
     trigger: { type: 'year', year: 2016 },
     windowAge: [28, 38],
+    // "第二个孩子"以已经有孩子为前提。这条以前没有任何条件，
+    // 于是选了「一个人过」的人也会收到"家里的老人开始问：还生不生"，
+    // 而且「再生一个」会直接设 child_born——未婚玩家凭空多出一个孩子。
+    conditions: { flags: ['child_born'] },
     title: '全面二孩',
     body: '这一年，全面二孩政策落地。家里的老人开始问：还生不生？',
     choices: [
@@ -664,7 +784,139 @@ export const ERA_EVENTS: EventDef[] = [
     source: '2018 年 6–8 月 P2P 网贷平台集中爆雷（银保监会、公安部通报）',
   },
   {
+    id: 'era_labor_shortage_2010',
+    layer: 'era',
+    trigger: { type: 'year', year: 2010 },
+    windowAge: [38, 52],
+    // 1961–1974 出生的人在 40–66 岁之间原本有一条 9–14 年的空档：
+    // 所有经济类事件的窗口都压在 22–42 岁，中年后段没人管。
+    title: '招不到人',
+    body: '厂里招不到人，招工牌立到了镇口。老板说，谁能带一批人来，给介绍费。',
+    choices: [
+      {
+        id: 'refer_folks',
+        label: '带老乡来',
+        effects: { wealth: 2, family: 2, happiness: 1 },
+        outcome: '你回了趟老家，带了七个人出来。介绍费没多少，人情攒下了。',
+      },
+      {
+        id: 'jump_ship',
+        label: '自己跳去给钱多的那家',
+        effects: { wealth: 3, health: -1, family: -1 },
+        outcome: '工资涨了三成，宿舍换成了四个人一间。你在那儿干了六年。',
+      },
+      {
+        id: 'stay_out',
+        label: '不掺和',
+        effects: { happiness: 1, family: 1 },
+        outcome: '你没动。后来厂里加了薪，也没加多少。',
+        default: true,
+      },
+    ],
+    ledgerWeight: 3,
+    source: '2010 年前后长三角、珠三角“用工荒”；人力资源和社会保障部历年劳动力市场供求状况分析',
+  },
+  {
+    id: 'era_high_speed_rail_2013',
+    layer: 'era',
+    trigger: { type: 'year', year: 2013 },
+    windowAge: [40, 55],
+    title: '四个小时',
+    body: '高铁通到了你们那儿。以前出差要坐一夜火车，现在四个小时。隔壁老李说他一周跑三个城市。',
+    choices: [
+      {
+        id: 'run_farther',
+        label: '跑得更远，接更多活',
+        effects: { wealth: 3, health: -2, family: -1 },
+        outcome: '你的行李箱一直在门口。有一年你数过，在家的天数不到一百五。',
+      },
+      {
+        id: 'stay_local',
+        label: '还是守在本地',
+        effects: { family: 2, happiness: 1 },
+        outcome: '你没怎么变。车次越来越多，你坐的还是那几趟。',
+        default: true,
+      },
+      {
+        id: 'move_province',
+        label: '干脆搬到省城去住',
+        effects: { wealth: 2, family: -1, happiness: -2 },
+        outcome: '房子换到了省城，离单位近了，离父母远了。',
+      },
+    ],
+    ledgerWeight: 3,
+    source: '2013 年前后中国高铁运营里程突破 1 万公里；国家铁路局历年铁路统计公报',
+  },
+  {
+    id: 'era_early_repay_2022',
+    layer: 'era',
+    trigger: { type: 'year', year: 2022 },
+    windowAge: [40, 58],
+    title: '提前还款那个按钮',
+    body: '理财收益跌破三个点，房贷还是五个多。手机银行里那个“提前还款”的按钮，你点进去看了三次。',
+    choices: [
+      {
+        id: 'repay_all',
+        label: '把手里的钱还进去',
+        effects: { wealth: 2, happiness: 2, family: 1 },
+        outcome: '还完那天你算了一遍，省下的利息够孩子一年的学费。账上剩下不到两万。',
+      },
+      {
+        id: 'keep_cash',
+        label: '留着，怕急用',
+        effects: { wealth: -1, happiness: 1 },
+        outcome: '钱留在卡里。后来家里老人住了一次院，那笔钱派上了用场。',
+        default: true,
+      },
+      {
+        id: 'repay_half',
+        label: '先还一半',
+        effects: { wealth: 1, happiness: 1 },
+        outcome: '你还了一半，剩下的按月还。两件事都占了一点。',
+      },
+    ],
+    ledgerWeight: 3,
+    source: '2022 年前后居民提前偿还住房贷款规模上升（中国人民银行《金融机构贷款投向统计报告》历年数据）',
+  },
+  {
+    id: 'era_midlife_layoff_2019',
+    layer: 'era',
+    trigger: { type: 'year', year: 2019 },
+    windowAge: [40, 58],
+    // 40–58 岁这一段的时代内容原本是空的：所有的经济类事件窗口都压在 22–42，
+    // 1961–1971 出生的人在 45–58 岁之间一条都命中不了（实测 9 年空档）。
+    title: '优化',
+    body: '公司在做“结构优化”。名单上有你，也有比你小十岁的人。人事约你下午三点谈，说的是“协商”。',
+    choices: [
+      {
+        id: 'sign_and_go',
+        label: '签字，拿钱走人',
+        effects: { wealth: 2, happiness: -3, family: -1 },
+        outcome: '补偿按 N+1 算。你把工牌放在桌上，没跟谁告别。',
+        default: true,
+      },
+      {
+        id: 'ask_transfer',
+        label: '要求换个岗位',
+        effects: { wealth: -1, health: -1, family: 1 },
+        outcome: '你调去了一个更远的分部，工资降了两成。通勤多一个小时。',
+      },
+      {
+        id: 'hire_lawyer',
+        label: '找律师谈',
+        effects: { wealth: -2, ability: 2, happiness: -1 },
+        outcome: '前后谈了三个月，多拿了两个月。那三个月你没睡过整觉。',
+      },
+    ],
+    ledgerWeight: 4,
+    source: '2019 年前后部分行业人员结构调整；《劳动合同法》关于协商解除与经济补偿的规定',
+  },
+  {
     id: 'era_crypto_enter_2020',
+    // 降为播报：币圈在目录里原本有 6 条弹窗（2013/2019/2020/2020/2022/2024），
+    // 是单一题材里最密的一串。留 2013 买、2020 峰值、2022 崩盘三个节拍就够讲完，
+    // 其余退回播报，把抉择名额让给童年和晚年。
+    priority: 2,
     layer: 'era',
     trigger: { type: 'year', year: 2020 },
     windowAge: [26, 40],
@@ -747,6 +999,9 @@ export const ERA_EVENTS: EventDef[] = [
   },
   {
     id: 'era_longevity_2040',
+    // 降为播报：三条 2035/2040/2045 都是推演型"生活切面"，没有真正的岔路
+    // （选项只是态度差异）。把抉择名额让给人生节点，它们留一行背景音即可。
+    priority: 2,
     layer: 'era',
     trigger: { type: 'year', year: 2040 },
     windowAge: [35, 52],
@@ -772,6 +1027,7 @@ export const ERA_EVENTS: EventDef[] = [
   },
   {
     id: 'era_ai_society_2045',
+    priority: 2,
     layer: 'era',
     trigger: { type: 'year', year: 2045 },
     windowAge: [35, 50],
@@ -849,6 +1105,7 @@ export const ERA_EVENTS: EventDef[] = [
   },
   {
     id: 'era_carbon_2035',
+    priority: 2,
     layer: 'era',
     trigger: { type: 'year', year: 2035 },
     windowAge: [30, 45],
@@ -985,6 +1242,8 @@ export const ERA_EVENTS: EventDef[] = [
     layer: 'era',
     trigger: { type: 'year', year: 2025 },
     windowAge: [26, 38],
+    // 同 2016 二孩：要生孩子至少得先成家，也已经有了孩子就不再是"要一个"。
+    conditions: { flags: ['married'], notFlags: ['child_born'] },
     title: '育儿补贴',
     body: '从这一年起，三岁以下的孩子每年能领一笔补贴，秋季学期起公办幼儿园的学前一年也免了保教费。钱不多，但是第一次由公家分担。',
     choices: [

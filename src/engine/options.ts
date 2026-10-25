@@ -65,7 +65,3 @@ export function filterUsableChoices(
 ): ResolvedChoiceDef[] {
   return choices.map((definition) => ({ definition, result: evaluateChoice(definition, ctx) }));
 }
-
-export function availableChoiceIds(choices: readonly ResolvedChoiceDef[]): string[] {
-  return choices.filter((c) => c.result.state === 'available').map((c) => c.definition.id);
-}

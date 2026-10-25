@@ -42,12 +42,25 @@ export function shareUrl(seed: number): string {
   return `${base}?${SEED_PARAM}=${encodeSeed(seed)}`;
 }
 
-/** 把当前种子写回地址栏，方便直接复制分享 */
-export function syncUrlWithSeed(seed: number): void {
+/**
+ * 清掉地址栏里的种子。
+ *
+ * 必须清：「再抽一年」会回到出生屏，而出生屏的种子来自 `seedFromLocation()`。
+ * 不清的话地址栏还留着上一局的 `?s=`，于是"再抽一年"抽到的还是同一年——
+ * 玩家以为重抽了，其实什么都没变。
+ */
+export function clearSeedFromUrl(): void {
   if (typeof window === 'undefined') return;
   try {
-    window.history.replaceState(null, '', `?${SEED_PARAM}=${encodeSeed(seed)}`);
+    const { pathname, search, hash } = window.location;
+    if (!search.includes(`${SEED_PARAM}=`)) return;
+    const rest = search
+      .replace(/^\?/, '')
+      .split('&')
+      .filter((part) => part !== '' && !part.startsWith(`${SEED_PARAM}=`))
+      .join('&');
+    window.history.replaceState(null, '', `${pathname}${rest ? `?${rest}` : ''}${hash}`);
   } catch {
-    // 某些内嵌浏览器禁止改地址，忽略即可
+    // 改不了地址也不影响重开
   }
 }

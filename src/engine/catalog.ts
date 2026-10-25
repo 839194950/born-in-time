@@ -19,6 +19,9 @@ function isDue(ev: EventDef, ctx: EventCtx): boolean {
 }
 
 export function matchesConditions(ev: EventDef, ctx: EventCtx): boolean {
+  if (ev.yearRange) {
+    if (ctx.year < ev.yearRange[0] || ctx.year > ev.yearRange[1]) return false;
+  }
   const c = ev.conditions;
   if (!c) return true;
   if (c.urban !== undefined && c.urban !== ctx.urban) return false;
@@ -42,6 +45,16 @@ export function matchesConditions(ev: EventDef, ctx: EventCtx): boolean {
 
 /** 一年最多弹一个抉择；其余以播报和结算带过 */
 export const MAX_DECISIONS_PER_YEAR = 1;
+
+/**
+ * 时代通道每年最多弹几条。
+ *
+ * 设 2 而不是 1：1998 年「房改」和「下岗」同年到期，只留一条等于让玩家
+ * 错过一生的转折。实测设 1 时 caught 从 8.0 掉到 6.5——被降级成播报的
+ * 不是边角料，是房改、下岗、入世这种主轴。
+ * 设 2 仍然拦得住"同一年连弹三条时代事件"那种灌新闻的节奏。
+ */
+export const MAX_ERA_DECISIONS_PER_YEAR = 2;
 
 /**
  * 当年到期的全部事件，按 ledgerWeight 降序（重的先上）。

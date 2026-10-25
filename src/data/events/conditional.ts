@@ -10,6 +10,9 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     layer: 'conditional',
     trigger: { type: 'age', age: 38 },
     windowAge: [38, 38],
+    // 1990 年代城市改造才开始成规模；上限给到 2040，
+    // 再往后"拆迁"这个说法本身就过时了（会变成"城市更新"）。
+    yearRange: [1990, 2040],
     conditions: { urban: true, flags: ['has_home'] },
     title: '拆迁',
     body: '你们那片被划进了改造范围。居委会门口贴了公告，量房的队伍排了半条街。',
@@ -65,6 +68,10 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     layer: 'conditional',
     trigger: { type: 'age', age: 8 },
     windowAge: [8, 8],
+    // 打工潮起来之后才有"留守儿童"。虽然 migrant_parent 这个 flag 本身
+    // 已经把 1985 年前出生的人挡在外面（那时的职业池里没有"务工"），
+    // 但依赖一个间接的 flag 太脆，这里显式写清楚。
+    yearRange: [1990, 9999],
     conditions: { urban: false, flags: ['migrant_parent'] },
     title: '爸妈出去了',
     body: '过完年，爸妈坐上了去南方的车。你跟着爷爷奶奶过，电话一周打一次。',
@@ -117,6 +124,9 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     layer: 'conditional',
     trigger: { type: 'age', age: 25 },
     windowAge: [25, 25],
+    // 按年龄触发的事件必须自己管年代：1958 年生的人 25 岁是 1983 年，
+    // 那会儿没有"跑单的平台"。2014 年外卖平台铺开之后才成立。
+    yearRange: [2014, 9999],
     conditions: { notFlags: ['stable_job'] },
     title: '灵活就业',
     body: '这一年，跑单的平台多了起来。注册、接单、结算，全在手机上。没有底薪，也没有社保。',
@@ -144,6 +154,9 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     layer: 'conditional',
     trigger: { type: 'age', age: 30 },
     windowAge: [30, 30],
+    // 同上：1958 年生的人 30 岁是 1988 年，那时候连网页都没有，
+    // "随手发一条视频涨了几十万播放"无从谈起。短视频平台 2016 年后才起来。
+    yearRange: [2016, 9999],
     conditions: { statMin: { ability: 68 } },
     title: '一个视频火了',
     body: '你随手发的一条视频，一晚上涨了几十万播放。私信里全是问“还更新吗”的人。',
@@ -254,6 +267,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
   },
   {
     id: 'cond_btc_crisis_2019',
+    priority: 2,
     layer: 'conditional',
     trigger: { type: 'year', year: 2019 },
     windowAge: [25, 55],
@@ -309,6 +323,7 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
   },
   {
     id: 'cond_btc_2024',
+    priority: 2,
     layer: 'conditional',
     trigger: { type: 'year', year: 2024 },
     windowAge: [22, 60],
@@ -334,5 +349,48 @@ export const CONDITIONAL_EVENTS: EventDef[] = [
     ],
     ledgerWeight: 3,
     source: '2024 年 1 月美国 SEC 批准比特币现货 ETF；2024 年 12 月比特币首次突破 100000 美元',
+  },
+  {
+    id: 'cond_gaokao_retry',
+    // 复读生的第二场高考。
+    //
+    // 放在条件层而不是阶段层：stage 事件的年龄必须互不重复（有测试锁着），
+    // 而 19 岁已经被「选专业」占了。这里又确实是"只有复读过的人才遇到"，
+    // 归到条件专属更准。
+    layer: 'conditional',
+    trigger: { type: 'age', age: 19 },
+    windowAge: [19, 19],
+    // 高考 1977 年恢复，所以第二场最早是 1978 年。
+    yearRange: [1978, 9999],
+    conditions: { flags: ['retaking'], notFlags: ['higher_ed'] },
+    title: '再考一次',
+    body: '这一年你又坐进了考场。教室比去年安静，你知道笔该往哪落。',
+    choices: [
+      {
+        id: 'college',
+        label: '报本科',
+        requires: { statMin: { ability: 58 } },
+        lockedText: '多读一年，分数还是够不上',
+        effects: { ability: 5, wealth: -2, happiness: 2 },
+        outcome: '这一次够了。你收拾行李，去了一个从没去过的城市。',
+        setFlags: ['college', 'higher_ed'],
+        default: true,
+      },
+      {
+        id: 'junior_college',
+        label: '报专科',
+        effects: { ability: 3, happiness: 1 },
+        outcome: '你读了专科，两年后毕业。',
+        setFlags: ['junior_college', 'higher_ed'],
+      },
+      {
+        id: 'stop',
+        label: '不考了，去上班',
+        effects: { wealth: 2, ability: -1, family: 1 },
+        outcome: '你把课本收进箱子，跟着亲戚进了厂。',
+      },
+    ],
+    ledgerWeight: 3,
+    source: '教育部历年普通高等学校招生统一考试报名人数与录取率；1977 年恢复高考后允许往届生报考',
   },
 ];
