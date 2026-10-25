@@ -178,6 +178,52 @@ const VERIFIED: Record<string, Verdict> = {
   stage_third_home: { s: 'mech' },
   stage_will: { s: 'mech' },
   stage_zhongkao: { s: 'mech' },
+
+  // —— 2026-10-25 新增：童年 / 晚年 / 中年 / 播报 ——
+  //
+  // 这批是"生活切面"：正文只写那年普通人身边发生了什么，不含可错的量化断言，
+  // 所以按 mech 登记（只核"这件事真实存在"）。**精确到日/数字的官方链接还没逐条补**，
+  // 补链是下一批的欠账，不是已核。
+  // 推演两条单独标 proj。
+  era_tangshan_shelter_1976: { s: 'mech' },
+  era_one_child_1980: { s: 'mech' },
+  era_teacher_day_1985: { s: 'mech' },
+  era_kfc_1987: { s: 'mech' },
+  era_asian_games_1990: { s: 'mech' },
+  era_two_day_weekend_1995: { s: 'mech' },
+  era_hongkong_1997: { s: 'mech' },
+  era_millennium_1999: { s: 'mech' },
+  era_olympic_bid_2001: { s: 'mech' },
+  era_sars_school_2003: { s: 'mech' },
+  era_super_girl_2005: { s: 'mech' },
+  era_olympics_2008: { s: 'mech' },
+  era_smartphone_2012: { s: 'mech' },
+  era_sibling_2015: { s: 'mech' },
+  era_mobile_game_2017: { s: 'mech' },
+  era_online_class_2020: { s: 'mech' },
+  era_cross_region_medical_2016: { s: 'mech' },
+  era_health_code_2020: { s: 'mech' },
+  era_elder_fraud_2021: { s: 'mech' },
+  era_private_pension_2022: { s: 'mech' },
+  era_labor_shortage_2010: { s: 'mech' },
+  era_high_speed_rail_2013: { s: 'mech' },
+  era_midlife_layoff_2019: { s: 'mech' },
+  era_early_repay_2022: { s: 'mech' },
+  bc_daqing_1959: { s: 'mech' },
+  bc_hybrid_rice_1973: { s: 'mech' },
+  bc_terracotta_1974: { s: 'mech' },
+  bc_haicheng_quake_1975: { s: 'mech' },
+  bc_us_established_1979: { s: 'mech' },
+  bc_census_1982: { s: 'mech' },
+  bc_flood_relief_1991: { s: 'mech' },
+  bc_sydney_2000: { s: 'mech' },
+  bc_world_cup_2002: { s: 'mech' },
+  bc_liuxiang_2004: { s: 'mech' },
+  bc_agriculture_tax_2006: { s: 'mech' },
+  bc_stock_peak_2007: { s: 'mech' },
+  cond_gaokao_retry: { s: 'mech' },
+  era_community_canteen_2028: { s: 'proj' },
+  era_ai_care_2036: { s: 'proj' },
 };
 
 function statusCell(v: Verdict | undefined): { link: string; status: string } {
