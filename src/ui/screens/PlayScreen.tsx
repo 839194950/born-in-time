@@ -148,7 +148,7 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
         yearProgressRef.current = Math.min(1, base + walked * (1 - base));
       }
     };
-  }, [phase, paused, speed]);
+  }, [phase, paused, speed, snapshot.year]);
 
   useEffect(() => {
     if (!auto || phase !== 'awaitingChoice' || !pending) return;
