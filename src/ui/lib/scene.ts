@@ -568,6 +568,23 @@ const STAGE_H: Record<string, number> = {
 };
 const ADULT_H = 252;
 
+/** drawScene 本次会请求的生图地址：背景板 + 全体人物精灵。
+ *  SceneStage 用它判断“本场景的图是否都到货了”——到货前不画程序占位，
+ *  避免首帧闪回旧画风。映射必须与 drawScene 里的一致，改一边要同步另一边。 */
+export function sceneAssetUrls(spec: SceneSpec): string[] {
+  const urls: string[] = [];
+  const plate = plateFor(spec.scene, spec.year);
+  if (plate) urls.push(plateUrl(plate));
+  for (const c of spec.companions ?? []) {
+    const age = c.age ?? c.sprite.age;
+    if (c.kind === 'father') urls.push(spriteUrl('dad', dadStage(age)));
+    else if (c.kind === 'mother') urls.push(spriteUrl('mom', momStage(age)));
+    else if (c.kind) urls.push(spriteUrl(otherSet(spec.seed ?? 0, c.sprite.gender), stageKeyForAge(age)));
+  }
+  urls.push(spriteUrl(protagonistSet(spec.seed ?? 0, spec.sprite.gender), stageKeyForAge(spec.sprite.age)));
+  return urls;
+}
+
 export function drawScene(ctx: CanvasRenderingContext2D, spec: SceneSpec): void {
   const r = makeRect(ctx);
   const mode = SCENES.find((s) => s.id === spec.scene)?.mode ?? 'outdoor';

@@ -112,6 +112,19 @@ export function preloadSceneAssets(): void {
   for (const stage of ['30', '50', '75']) getImage(spriteUrl('dad', stage));
   for (const stage of ['28', '48', '72']) getImage(spriteUrl('mom', stage));
 }
+/** 该地址是否已尘埃落定：已加载成功，或连续失败到上限（缺图兜底，不再等它）。
+ *  注意：未请求过的地址会顺带触发一次加载——只在 effect / 事件回调里调用，不要在渲染中调用。 */
+export function imageSettled(url: string): boolean {
+  if (getImage(url)) return true;
+  return (failures.get(url) ?? 0) >= MAX_RETRIES;
+}
+
+/** 渲染中可用的无副作用版本：只看缓存，不触发加载。 */
+export function imageSettledCached(url: string): boolean {
+  const img = cache.get(url);
+  if (img && img.complete && img.naturalWidth > 0) return true;
+  return (failures.get(url) ?? 0) >= MAX_RETRIES;
+}
 /** 取已加载完成的图片；未完成返回 null（调用方回退程序绘制，加载完会再重绘）。
  *  加载失败时清缓存让下次重绘重试（弱网下一次失败就永久回退程序画风是 bug），
  *  同一地址连续失败 3 次后不再请求，缺图兜底。 */

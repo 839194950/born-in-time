@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { sceneForContext } from '../../data/props';
 import type { FamilyMember, Gender } from '../../engine/types';
-import { onImageReady, preloadSceneAssets } from '../lib/assets';
+import { getImage, imageSettled, imageSettledCached, onImageReady, preloadSceneAssets } from '../lib/assets';
 import { outfitFor, type OutfitRole } from '../lib/pixel';
-import { SCENE_H, SCENE_W, drawScene, type CompanionKind } from '../lib/scene';
+import { SCENE_H, SCENE_W, drawScene, sceneAssetUrls, type CompanionKind } from '../lib/scene';
 
 export interface SceneStageProps {
   year: number;
@@ -51,10 +51,47 @@ export function SceneStage({
   /** 生图素材是异步加载的：任一图就绪就重绘一次，像素小人随即换成精灵。
    *  挂载时预热全部场景素材，避免中途新场景/新年龄段第一次出现时现下闪回程序画风。 */
   const [, setImgTick] = useState(0);
+  /** 本场景要用的生图地址（与 drawScene 请求的完全一致；呼吸帧不影响地址，用 0 占位） */
+  const requiredUrls = useMemo(
+    () =>
+      sceneAssetUrls({
+        year,
+        urban,
+        scene: sceneForContext({ age, urban, role }),
+        seed,
+        sprite: { stage: stageOf(age), gender, outfit: outfitFor(age, gender, role), age, health, happiness, breath: 0 },
+        companions: companionsFor(family, year, age, gender),
+      }),
+    [year, urban, age, gender, role, seed, health, happiness, family],
+  );
+  const urlsKey = requiredUrls.join('|');
+  /** 已确认到货的那组地址；要求一变就失效，图到货前不画程序占位 */
+  const [settledKey, setSettledKey] = useState<string | null>(() =>
+    requiredUrls.every(imageSettledCached) ? urlsKey : null,
+  );
+  const [timedOut, setTimedOut] = useState(false);
+  const showScene = settledKey === urlsKey || timedOut;
   useEffect(() => {
+    // 本场景的图先下（排在预热队列前面）：否则弱网下 20 张背景板会把人物精灵挡在后面，
+    // 门靠超时放行时就会出现“新背景板 + 程序小人”的混搭
+    requiredUrls.forEach((u) => getImage(u));
     preloadSceneAssets();
-    return onImageReady(() => setImgTick((t) => t + 1));
-  }, []);
+    return onImageReady(() => {
+      setImgTick((t) => t + 1);
+      if (requiredUrls.every(imageSettled)) setSettledKey(urlsKey);
+    });
+  }, [urlsKey]);
+  /** 首帧门：本场景的图都到货（或确认缺图）前显示加载态；15 秒还没到货就先放行，避免弱网下卡加载 */
+  useEffect(() => {
+    setTimedOut(false);
+    if (requiredUrls.every(imageSettled)) {
+      setSettledKey(urlsKey);
+      return undefined;
+    }
+    setSettledKey(null);
+    const t = window.setTimeout(() => setTimedOut(true), 15000);
+    return () => window.clearTimeout(t);
+  }, [urlsKey]);
 
   useEffect(() => {
     // 尊重 reduced-motion：这类用户看到的是静帧，不是"动画坏了"
@@ -68,6 +105,7 @@ export function SceneStage({
   }, []);
 
   useEffect(() => {
+    if (!showScene) return;
     const canvas = ref.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -81,18 +119,24 @@ export function SceneStage({
       sprite: { stage: stageOf(age), gender, outfit: outfitFor(age, gender, role), age, health, happiness, breath },
       companions: companionsFor(family, year, age, gender),
     });
-  }, [year, age, gender, urban, health, happiness, role, family, breath, seed]);
+  }, [year, age, gender, urban, health, happiness, role, family, breath, seed, showScene]);
 
   return (
     <div className={variant === 'plain' ? 'scene-plain' : 'scene-wrap'}>
-      <canvas
-        ref={ref}
-        className="scene-canvas"
-        width={SCENE_W}
-        height={SCENE_H}
-        role="img"
-        aria-label={`${year} 年的场景`}
-      />
+      {showScene ? (
+        <canvas
+          ref={ref}
+          className="scene-canvas"
+          width={SCENE_W}
+          height={SCENE_H}
+          role="img"
+          aria-label={`${year} 年的场景`}
+        />
+      ) : (
+        <div className="scene-loading" role="status" aria-label="场景加载中">
+          场景加载中…
+        </div>
+      )}
       {variant === 'frame' && <span className="scene-caption">{`${year} · ${urban ? '城镇' : '乡村'}`}</span>}
     </div>
   );

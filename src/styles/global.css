@@ -253,6 +253,18 @@ img {
   transition: filter 0.6s linear;
 }
 
+/* 首帧门占位：图到货前不画程序画风，先显示加载态（与画布同比例，不跳布局） */
+.scene-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #e9e0cf;
+  color: #8a7a5f;
+  font-size: 14px;
+}
+
 .scene-caption {
   position: absolute;
   right: 10px;
