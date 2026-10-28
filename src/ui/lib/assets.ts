@@ -99,13 +99,40 @@ export function onImageReady(cb: () => void): () => void {
   };
 }
 
-/** 取已加载完成的图片；未完成返回 null（调用方回退程序绘制，加载完会再重绘） */
+/** 预热全部场景素材：背景板 20 张 + 人物精灵 48 张（约 3MB），场景挂载后在后台慢慢下完。
+ *  否则每个新场景 / 新年龄段 / 新家人第一次出现时都要现下，慢网下就会闪回程序画风，
+ *  而且闪的时机只跟年龄阈值有关，玩家看来就是"没有规律地穿插旧素材"。 */
+let preloaded = false;
+export function preloadSceneAssets(): void {
+  if (preloaded) return;
+  preloaded = true;
+  for (const def of Object.values(PLATES)) getImage(plateUrl(def));
+  const sets = [...MALE_SETS, ...FEMALE_SETS];
+  for (const set of sets) for (const stage of ['03', '08', '15', '25', '45', '70']) getImage(spriteUrl(set, stage));
+  for (const stage of ['30', '50', '75']) getImage(spriteUrl('dad', stage));
+  for (const stage of ['28', '48', '72']) getImage(spriteUrl('mom', stage));
+}
+/** 取已加载完成的图片；未完成返回 null（调用方回退程序绘制，加载完会再重绘）。
+ *  加载失败时清缓存让下次重绘重试（弱网下一次失败就永久回退程序画风是 bug），
+ *  同一地址连续失败 3 次后不再请求，缺图兜底。 */
+const failures = new Map<string, number>();
+const MAX_RETRIES = 3;
+
 export function getImage(url: string): HTMLImageElement | null {
   if (typeof Image === 'undefined') return null;
   let img = cache.get(url);
   if (!img) {
+    if ((failures.get(url) ?? 0) >= MAX_RETRIES) return null;
     img = new Image();
-    img.onload = () => listeners.forEach((cb) => cb());
+    img.onload = () => {
+      failures.delete(url);
+      listeners.forEach((cb) => cb());
+    };
+    img.onerror = () => {
+      cache.delete(url);
+      failures.set(url, (failures.get(url) ?? 0) + 1);
+      listeners.forEach((cb) => cb());
+    };
     img.src = url;
     cache.set(url, img);
   }

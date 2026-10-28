@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { sceneForContext } from '../../data/props';
 import type { FamilyMember, Gender } from '../../engine/types';
-import { onImageReady } from '../lib/assets';
+import { onImageReady, preloadSceneAssets } from '../lib/assets';
 import { outfitFor, type OutfitRole } from '../lib/pixel';
 import { SCENE_H, SCENE_W, drawScene, type CompanionKind } from '../lib/scene';
 
@@ -48,9 +48,13 @@ export function SceneStage({
   const role = roleFromFlags(flags, urban);
   /** 待机呼吸：0 / 1 两帧交替。幅度只有 1px，但两帧之后就不是贴纸了。 */
   const [breath, setBreath] = useState<0 | 1>(0);
-  /** 生图素材是异步加载的：任一图就绪就重绘一次，像素小人随即换成精灵 */
+  /** 生图素材是异步加载的：任一图就绪就重绘一次，像素小人随即换成精灵。
+   *  挂载时预热全部场景素材，避免中途新场景/新年龄段第一次出现时现下闪回程序画风。 */
   const [, setImgTick] = useState(0);
-  useEffect(() => onImageReady(() => setImgTick((t) => t + 1)), []);
+  useEffect(() => {
+    preloadSceneAssets();
+    return onImageReady(() => setImgTick((t) => t + 1));
+  }, []);
 
   useEffect(() => {
     // 尊重 reduced-motion：这类用户看到的是静帧，不是"动画坏了"
