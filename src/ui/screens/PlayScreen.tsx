@@ -450,9 +450,9 @@ export function PlayScreenView({ snapshot, actions }: { snapshot: GameSnapshot; 
         <section className="card record-card">
           <h2 className="card-title">
             人生纪录
-            <small>最近 10 条</small>
+            <small>{`共 ${snapshot.timeline.length} 条`}</small>
           </h2>
-          <Timeline entries={snapshot.timeline} limit={10} hideTitle />
+          <Timeline entries={snapshot.timeline} limit={snapshot.timeline.length} hideTitle />
         </section>
       </div>
 

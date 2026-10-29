@@ -1939,6 +1939,11 @@ body {
 .record-card .timeline {
   margin: 0;
   padding: 0;
+  /* 条数不再截断：卡内滚动，页面布局不被一百多条纪录撑开（与复盘页同一做法） */
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .record-card .timeline h3 {
